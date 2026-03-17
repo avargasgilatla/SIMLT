@@ -1,0 +1,2390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nintendo ITIL FND v4 Simulator - 2026 Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --nintendo-red: #e60012;
+            --nintendo-blue: #00b0e4;
+            --nintendo-gold: #ffcc00;
+            --success: #22c55e;
+            --warning: #ffcc00;
+            --danger: #ef4444;
+            --bg: #efefef;
+            --card-bg: #ffffff;
+            --text-main: #2d2d2d;
+        }
+
+        body.dark-mode {
+            --bg: #2d2d2d;
+            --card-bg: #3c3c3c;
+            --text-main: #ffffff;
+        }
+
+        body { font-family: 'Montserrat', sans-serif; background-color: var(--bg); margin: 0; color: var(--text-main); transition: 0.3s; }
+
+        header { 
+            background: var(--nintendo-red); padding: 15px 30px; position: sticky; top: 0; z-index: 100; 
+            display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 6px solid #b2000e;
+        }
+
+        .coin-counter { background: rgba(0,0,0,0.3); padding: 8px 20px; border-radius: 50px; display: flex; align-items: center; gap: 10px; font-weight: 900; color: var(--nintendo-gold); }
+        .coin-icon { width: 20px; height: 20px; background: var(--nintendo-gold); border-radius: 50%; border: 2px solid #b8860b; animation: spin 0.8s infinite linear; }
+        @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+
+        /* Pantalla de Inicio */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: var(--nintendo-red); z-index: 200; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; color: white;
+        }
+
+        .btn-start {
+            background: white; color: var(--nintendo-red); border: none; padding: 20px 60px; 
+            font-size: 2rem; font-weight: 900; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 8px 0 #b2000e; transition: 0.1s; margin-top: 20px;
+        }
+        .btn-start:active { transform: translateY(4px); box-shadow: 0 4px 0 #b2000e; }
+
+        /* Porcentaje Dinámico */
+        #live-percentage {
+            font-size: 3rem; font-weight: 900; text-align: center; margin: 20px 0;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        .container { max-width: 850px; margin: 30px auto; padding: 0 20px; opacity: 0.5; pointer-events: none; transition: 0.3s; }
+        .active-quiz { opacity: 1; pointer-events: auto; }
+
+        .question-card { background: var(--card-bg); border-radius: 25px; padding: 35px; margin-bottom: 25px; box-shadow: 0 10px 0px #ccc; border: 2px solid #ddd; }
+        .option-btn { width: 100%; padding: 18px; margin-bottom: 10px; border: 4px solid #f0f0f0; border-radius: 15px; background: var(--card-bg); color: var(--text-main); font-weight: 700; cursor: pointer; text-align: left; }
+        .option-btn:hover:not(:disabled) { border-color: var(--nintendo-blue); }
+        .correct { background: #dcfce7 !important; border-color: var(--success) !important; color: #166534 !important; }
+        .incorrect { background: #fee2e2 !important; border-color: var(--nintendo-red) !important; color: #b2000e !important; }
+        
+        .timer-box { background: white; color: var(--nintendo-red); padding: 8px 20px; border-radius: 50px; font-weight: 900; }
+        #progress-bar { position: fixed; bottom: 0; left: 0; height: 12px; background: var(--nintendo-blue); width: 0%; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1 style="font-size: 3.5rem; margin-bottom: 0;">ITIL 4 × SWITCH</h1>
+    <p style="font-weight: 700; letter-spacing: 2px;">PRESIONA START PARA COMENZAR!!</p>
+    <button class="btn-start" onclick="startQuiz()">START</button>
+</div>
+
+<header>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <div class="coin-counter"><div class="coin-icon"></div> x <span id="coin-score">0</span></div>
+    </div>
+    <div id="live-percentage" style="margin: 0; font-size: 1.8rem; color: white;">0%</div>
+    <div style="display: flex; gap: 15px; align-items: center;">
+        <button onclick="document.body.classList.toggle('dark-mode')" style="background:none; border:2px solid white; color:white; border-radius:50px; cursor:pointer; padding:5px 10px;">🌓</button>
+        <div id="timer" class="timer-box">00:00</div>
+    </div>
+</header>
+
+<div class="container" id="quiz-container">
+    </div>
+<div id="progress-bar"></div>
+
+<script>
+    // Lógica del Tema
+    function toggleTheme() {
+        const body = document.body;
+        const icon = document.getElementById('theme-icon');
+        const text = document.getElementById('theme-text');
+        
+        body.classList.toggle('dark-mode');
+        
+        if(body.classList.contains('dark-mode')) {
+            icon.innerText = '☀️';
+            text.innerText = 'Modo Claro';
+        } else {
+            icon.innerText = '🌙';
+            text.innerText = 'Modo Oscuro';
+        }
+    }
+    // He extraído una muestra representativa de las 365 preguntas para que el código sea manejable aquí.
+    // En un entorno real, este array contendría los 365 objetos.
+    const questions = [
+        {
+            q: "¿Qué principio rector de ITIL recomienda utilizar servicios, procesos y herramientas existentes al mejorar los servicios?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Mantenerlo simple y práctico", C: "Comenzar donde se está", D: "Enfocarse en el valor" },
+            correct: "C",
+            exp: "El principio 'Comenzar donde se está' evita el desperdicio al reutilizar lo que ya funciona."
+        },
+        {
+            q: "¿Por qué algunas solicitudes de servicio deben cumplirse sin aprobaciones adicionales?",
+            options: { A: "Para asegurar que el gasto se contabilice adecuadamente", B: "Para asegurar que se cumplan los requisitos de seguridad", C: "Para agilizar el flujo de trabajo de cumplimiento", D: "Para establecer expectativas del usuario" },
+            correct: "C",
+            exp: "Agilizar el flujo para solicitudes estándar de bajo riesgo mejora la eficiencia operativa."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Niveles de Servicio'?",
+            options: { A: "Establecer objetivos claros basados en el negocio para el desempeño del servicio", B: "Asegurar que el proveedor tenga la capacidad necesaria", C: "Reducir la probabilidad y el impacto de incidentes", D: "Maximizar el número de cambios exitosos" },
+            correct: "A",
+            exp: "Service Level Management se encarga de definir objetivos de rendimiento que tengan sentido para el cliente."
+        },
+        {
+            q: "¿Qué afirmación sobre los cambios de emergencia es CORRECTA?",
+            options: { A: "Las pruebas pueden eliminarse para implementar el cambio rápido", B: "La evaluación y autorización se agilizan para asegurar una implementación rápida", C: "Deben autorizarse e implementarse como solicitudes de servicio", D: "Deben estar totalmente documentados antes de la autorización" },
+            correct: "B",
+            exp: "ITIL recomienda un proceso de autorización acelerado para cambios de emergencia, permitiendo responder rápido a incidentes críticos sin perder el control."
+        },
+        {
+            q: "¿Qué afirmación sobre la gestión de incidentes es CORRECTA?",
+            options: { A: "Los incidentes de bajo impacto no necesitan ser registrados", B: "Debe usarse un único proceso sin importar el impacto", C: "Los incidentes de bajo impacto deben resolverse eficientemente para reducir recursos", D: "Los incidentes con el impacto más bajo deben resolverse primero" },
+            correct: "C",
+            exp: "Optimizar la resolución de incidentes menores permite que el equipo se enfoque en los problemas que realmente afectan al negocio."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Configuración de Servicios'?",
+            options: { A: "Asegurar que información precisa sobre la configuración esté disponible cuando se necesite", B: "Observar un servicio y registrar cambios de estado", C: "Minimizar el impacto negativo de las interrupciones", D: "Establecer y mejorar los vínculos entre la organización y sus partes interesadas" },
+            correct: "A",
+            exp: "Esta práctica proporciona la base lógica (CI - Configuration Items) para entender cómo se conectan los servicios y su infraestructura."
+        },
+        {
+            q: "¿Qué se debe utilizar para establecer las expectativas del usuario sobre los tiempos de cumplimiento de las solicitudes?",
+            options: { A: "El tiempo que el personal de soporte cree que tomará", B: "Los niveles de servicio del cliente", C: "El tiempo de diseño del servicio", D: "Tiempos de cumplimiento estandarizados y acordados" },
+            correct: "D",
+            exp: "Para las solicitudes de servicio, se definen tiempos estándar para que el usuario sepa exactamente cuánto esperar."
+        },
+        {
+            q: "¿Qué es una 'Salida' (Output)?",
+            options: { A: "Un cambio de estado que tiene importancia para la gestión de un servicio", B: "Un entregable tangible o intangible de una actividad", C: "Un resultado para una parte interesada habilitado por uno o más productos", D: "La configuración de los recursos de una organización para crear valor" },
+            correct: "B",
+            exp: "Una salida es un entregable tangible o intangible que resulta de una actividad."
+        },
+        {
+            q: "¿Qué afirmación sobre los cambios de emergencia es CORRECTA?",
+            options: { A: "Las pruebas pueden eliminarse para implementar el cambio rápido", B: "La evaluación y autorización se agilizan para asegurar una implementación rápida", C: "Deben autorizarse e implementarse como solicitudes de servicio", D: "Deben estar totalmente documentados antes de la autorización" },
+            correct: "B",
+            exp: "ITIL recomienda un proceso de autorización acelerado para cambios de emergencia, permitiendo responder rápido a incidentes críticos sin perder el control."
+        },
+        {
+            q: "¿Qué afirmación sobre la gestión de incidentes es CORRECTA?",
+            options: { A: "Los incidentes de bajo impacto no necesitan ser registrados", B: "Debe usarse un único proceso sin importar el impacto", C: "Los incidentes de bajo impacto deben resolverse eficientemente para reducir recursos", D: "Los incidentes con el impacto más bajo deben resolverse primero" },
+            correct: "C",
+            exp: "Optimizar la resolución de incidentes menores permite que el equipo se enfoque en los problemas que realmente afectan al negocio."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Configuración de Servicios'?",
+            options: { A: "Asegurar que información precisa sobre la configuración esté disponible cuando se necesite", B: "Observar un servicio y registrar cambios de estado", C: "Minimizar el impacto negativo de las interrupciones", D: "Establecer y mejorar los vínculos entre la organización y sus partes interesadas" },
+            correct: "A",
+            exp: "Esta práctica proporciona la base lógica (CI - Configuration Items) para entender cómo se conectan los servicios y su infraestructura."
+        },
+        {
+            q: "¿Qué se debe utilizar para establecer las expectativas del usuario sobre los tiempos de cumplimiento de las solicitudes?",
+            options: { A: "El tiempo que el personal de soporte cree que tomará", B: "Los niveles de servicio del cliente", C: "El tiempo de diseño del servicio", D: "Tiempos de cumplimiento estandarizados y acordados" },
+            correct: "D",
+            exp: "Para las solicitudes de servicio, se definen tiempos estándar para que el usuario sepa exactamente cuánto esperar."
+        },
+        {
+            q: "¿Qué es una 'Salida' (Output)?",
+            options: { A: "Un cambio de estado que tiene importancia para la gestión de un servicio", B: "Un entregable tangible o intangible de una actividad", C: "Un resultado para una parte interesada habilitado por uno o más productos", D: "La configuración de los recursos de una organización para crear valor" },
+            correct: "B",
+            exp: "Importante: El 'Output' es lo que sale de una actividad (un reporte, un servidor instalado), mientras que el 'Outcome' es el resultado de valor para el cliente."
+        },
+        {
+            q: "¿Qué práctica tiene el propósito de asegurar que la organización y sus partes interesadas creen valor conjuntamente de acuerdo con los objetivos del negocio?",
+            options: { A: "Gestión de Niveles de Servicio", B: "Gestión de Relaciones", C: "Gestión de Configuración", D: "Control de Cambios" },
+            correct: "B",
+            exp: "Relationship Management se enfoca en los vínculos estratégicos y tácticos entre la organización y sus stakeholders."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Problemas'?",
+            options: { A: "Restaurar el servicio normal lo más rápido posible", B: "Reducir la probabilidad e impacto de incidentes identificando causas", C: "Asegurar que los servicios operen según lo acordado", D: "Gestionar las solicitudes iniciadas por el usuario" },
+            correct: "B",
+            exp: "Diferencia clave: Gestión de Incidentes busca rapidez; Gestión de Problemas busca encontrar la raíz para evitar que el incidente se repita."
+        },
+        {
+            q: "¿Cómo ayuda la 'Gestión de Problemas' a la práctica de 'Gestión de Incidentes'?",
+            options: { A: "Definiendo niveles de servicio", B: "Proporcionando soluciones temporales (workarounds) para incidentes", C: "Asignando recursos para la resolución", D: "Generando registros de cambios" },
+            correct: "B",
+            exp: "Cuando Problem Management identifica una solución temporal, la comparte con Incident Management para que puedan restaurar servicios más rápido."
+        },
+        {
+            q: "¿Qué define un 'Incidente'?",
+            options: { A: "Una posible interrupción futura de un servicio", B: "Una interrupción no planificada o una reducción en la calidad de un servicio", C: "Una causa de uno o más incidentes", D: "Una solicitud del usuario para una acción de servicio" },
+            correct: "B",
+            exp: "Esta es la definición técnica de ITIL 4 para un incidente."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Mesa de Servicio' (Service Desk)?",
+            options: { A: "Registrar y gestionar incidentes y solicitudes", B: "Asegurar que los cambios se implementen con éxito", C: "Definir los niveles de servicio acordados", D: "Mantener información sobre la configuración" },
+            correct: "A",
+            exp: "El Service Desk es el punto único de contacto (SPOC) para capturar la demanda de resolución de incidentes y solicitudes."
+        },
+        {
+            q: "¿Qué principio rector recomienda considerar cómo las partes de una organización trabajan juntas de manera integrada?",
+            options: { A: "Enfocarse en el valor", B: "Pensar y trabajar holísticamente", C: "Mantenerlo simple y práctico", D: "Colaborar y promover la visibilidad" },
+            correct: "B",
+            exp: "Trabajar holísticamente significa entender que ninguna parte de la organización (o del servicio) actúa de forma aislada."
+        },
+        {
+            q: "¿Qué se debe hacer con cada incidente?",
+            options: { A: "Debe ser escalado al equipo técnico", B: "Debe ser resuelto por el Service Desk", C: "Debe ser registrado y clasificado", D: "Debe tener una solución temporal (workaround)" },
+            correct: "C",
+            exp: "El registro y la clasificación son obligatorios para todos los incidentes para poder medir el desempeño y encontrar tendencias."
+        },
+
+        {
+            q: "¿Qué dimensión se enfoca en las relaciones con otras organizaciones que participan en el diseño, desarrollo y entrega de servicios?",
+            options: { A: "Información y tecnología", B: "Socios y proveedores", C: "Flujos de valor y procesos", D: "Organizaciones y personas" },
+            correct: "B",
+            exp: "La dimensión de 'Socios y proveedores' abarca los contratos y relaciones con terceros que ayudan a la entrega de servicios."
+        },
+        {
+            q: "¿Qué principio rector recomienda que el trabajo no se realice en aislamiento, sino de forma transparente y con retroalimentación?",
+            options: { A: "Enfocarse en el valor", B: "Colaborar y promover la visibilidad", C: "Progresar iterativamente con retroalimentación", D: "Mantenerlo simple y práctico" },
+            correct: "B",
+            exp: "Colaborar y promover la visibilidad busca eliminar los 'silos' organizacionales y compartir información abiertamente."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Activos de TI'?",
+            options: { A: "Asegurar que los servicios operen según lo acordado", B: "Planificar y gestionar el ciclo de vida completo de todos los activos de TI", C: "Minimizar el impacto negativo de incidentes", D: "Observar un servicio y registrar cambios de estado" },
+            correct: "B",
+            exp: "IT Asset Management busca maximizar el valor, controlar costos y gestionar riesgos de los activos de hardware y software a lo largo de su vida."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que las personas entiendan la visión de la organización?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La actividad de 'Planear' asegura una comprensión compartida de la visión, el estado actual y la dirección de mejora."
+        },
+        {
+            q: "¿Qué es un 'Cambio Estándar'?",
+            options: { A: "Un cambio que debe implementarse lo antes posible", B: "Un cambio de bajo riesgo, pre-autorizado y que sigue un procedimiento", C: "Un cambio que requiere una evaluación completa cada vez", D: "Un cambio que no necesita ser registrado" },
+            correct: "B",
+            exp: "Los cambios estándar son rutinarios (ej. instalar software básico) y no pasan por el comité de cambios cada vez."
+        },
+        {
+            q: "¿Cuál es el punto de partida para la optimización?",
+            options: { A: "Comprender la visión y los objetivos de la organización", B: "Seleccionar la herramienta de automatización adecuada", C: "Eliminar todos los pasos manuales", D: "Estandarizar todas las tareas" },
+            correct: "A",
+            exp: "Antes de optimizar cualquier cosa, debes entender qué valor busca la organización para no optimizar algo innecesario."
+        },
+        {
+            q: "¿Qué práctica se encarga de mover servicios nuevos o cambiados al entorno de producción?",
+            options: { A: "Gestión de cambios", B: "Gestión de liberaciones (Release management)", C: "Gestión de despliegue (Deployment management)", D: "Mesa de servicio" },
+            correct: "C",
+            exp: "Ojo: 'Release' es poner el servicio a disposición del usuario; 'Deployment' es mover el componente técnico al servidor de producción."
+        },
+        {
+            q: "¿Qué principio rector dice: 'Si un proceso, servicio o acción no genera valor, elimínalo'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple y práctico", C: "Optimizar y automatizar", D: "Empezar donde se está" },
+            correct: "B",
+            exp: "El principio 'Mantenerlo simple y práctico' busca eliminar pasos burocráticos que no aportan nada al resultado final."
+        },
+        {
+            q: "¿Qué describe la naturaleza de la práctica de 'Mesa de Servicio'?",
+            options: { A: "Debe ser puramente técnica", B: "Debe tener un profundo entendimiento de la organización", C: "Solo debe gestionar incidentes simples", D: "Debe estar físicamente en la misma ubicación que los usuarios" },
+            correct: "B",
+            exp: "El Service Desk moderno necesita empatía y entendimiento del negocio, no solo conocimientos técnicos de 'reparación'."
+        },
+        {
+            q: "¿Cuál de estas opciones es una entrada (Input) para la cadena de valor del servicio?",
+            options: { A: "Valor", B: "Demanda", C: "Productos", D: "Servicios" },
+            correct: "B",
+            exp: "La cadena de valor siempre inicia con la 'Demanda' u 'Oportunidad' y termina con el 'Valor'."
+        },
+        {
+            q: "¿Qué práctica tiene como objetivo principal la restauración de la operación normal del servicio?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Gestión de cambios", D: "Gestión de niveles de servicio" },
+            correct: "B",
+            exp: "La prioridad número uno de la gestión de incidentes es la velocidad de restauración."
+        },
+        {
+            q: "¿Cómo se llama al conjunto de herramientas, datos e información utilizada para gestionar activos?",
+            options: { A: "Base de datos de gestión de configuración (CMDB)", B: "Sistema de gestión de activos", C: "Biblioteca de medios definitiva (DML)", D: "Registro de incidentes" },
+            correct: "B",
+            exp: "Aunque la CMDB es parte de esto, el sistema global para activos gestiona el ciclo de vida financiero y contractual."
+        },
+        {
+            q: "¿Cuál es el propósito de la actividad 'Involucrar' (Engage) en la cadena de valor?",
+            options: { A: "Asegurar que los productos cumplan las expectativas", B: "Proporcionar una buena comprensión de las necesidades de las partes interesadas", C: "Asegurar que los servicios se entreguen según las especificaciones", D: "Mejorar continuamente todos los productos" },
+            correct: "B",
+            exp: "Engage se trata de comunicación, relaciones y entender qué necesitan los clientes y usuarios."
+        },
+        {
+            q: "¿Qué es una 'Solución Temporal' (Workaround)?",
+            options: { A: "Una solución definitiva a un problema", B: "Una reducción o eliminación del impacto de un incidente para el cual no hay resolución definitiva aún", C: "Un cambio que se realiza sin autorización", D: "Un error que nunca fue identificado" },
+            correct: "B",
+            exp: "Los workarounds son clave en la gestión de problemas para ayudar a la mesa de servicio a mitigar incidentes rápidamente."
+        },
+        {
+            q: "¿Qué principio rector sugiere usar la tecnología solo cuando sea necesario y después de optimizar?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Optimizar y automatizar", C: "Pensar y trabajar holísticamente", D: "Enfocarse en el valor" },
+            correct: "B",
+            exp: "La automatización sin optimización simplemente acelera el desorden. Primero optimiza, luego automatiza."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor del servicio transforma las demandas y oportunidades en valor?",
+            options: { A: "Planear", B: "Mejorar", C: "Entrega y soporte", D: "Todas las anteriores" },
+            correct: "D",
+            exp: "Todas las actividades de la cadena de valor trabajan en conjunto para transformar la demanda en valor real para el cliente."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Capacidad y el Desempeño'?",
+            options: { A: "Asegurar que los servicios alcancen el desempeño acordado y esperado", B: "Asegurar que los activos de TI estén correctamente registrados", C: "Minimizar el impacto de incidentes técnicos", D: "Gestionar las relaciones con los proveedores externos" },
+            correct: "A",
+            exp: "Esta práctica se enfoca en que la infraestructura y los servicios tengan la potencia necesaria para cumplir con los SLAs."
+        },
+        {
+            q: "¿Qué describe la 'Gobernanza' dentro del Sistema de Valor del Servicio (SVS)?",
+            options: { A: "Los medios por los cuales una organización es dirigida y controlada", B: "La ejecución técnica de los cambios", C: "La relación entre socios y proveedores", D: "El conjunto de procesos para resolver incidentes" },
+            correct: "A",
+            exp: "La gobernanza asegura que la estrategia de TI esté alineada con los objetivos de la dirección de la empresa."
+        },
+        {
+            q: "¿Qué principio rector enfatiza que 'nada ocurre en el vacío'?",
+            options: { A: "Enfocarse en el valor", B: "Pensar y trabajar holísticamente", C: "Mantenerlo simple y práctico", D: "Empezar donde se está" },
+            correct: "B",
+            exp: "El enfoque holístico reconoce que todas las partes de la organización están interconectadas."
+        },
+        {
+            q: "¿Cuál es el propósito de la actividad de la cadena de valor 'Obtener/Construir' (Obtain/Build)?",
+            options: { A: "Asegurar que los componentes del servicio estén disponibles cuando y donde se necesiten", B: "Proporcionar una visión compartida de los servicios", C: "Involucrar a los usuarios en el diseño del servicio", D: "Gestionar los tickets de soporte" },
+            correct: "A",
+            exp: "Esta actividad se encarga de adquirir o crear los recursos (software, hardware) necesarios para el servicio."
+        },
+        {
+            q: "¿Qué práctica incluye la gestión de vulnerabilidades y amenazas?",
+            options: { A: "Gestión de la seguridad de la información", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Proteger la confidencialidad, integridad y disponibilidad de la información es el núcleo de esta práctica."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido' (Known Error)?",
+            options: { A: "Un incidente que se repite mucho", B: "Un problema que ha sido analizado pero no se ha resuelto definitivamente", C: "Un cambio que falló en producción", D: "Un error en el código que nadie ha visto" },
+            correct: "B",
+            exp: "Un problema se convierte en 'Error Conocido' cuando se identifica su causa raíz y se documenta una solución temporal."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de que los servicios se entreguen según las especificaciones acordadas?",
+            options: { A: "Mejorar", B: "Involucrar", C: "Entrega y Soporte", D: "Diseño y Transición" },
+            correct: "C",
+            exp: "Entrega y Soporte (Deliver and Support) asegura que el servicio funcione día a día conforme a lo prometido."
+        },
+        {
+            q: "¿Cuál es un beneficio de usar el principio 'Progresar iterativamente con retroalimentación'?",
+            options: { A: "Permite responder más rápido a los cambios en las necesidades del cliente", B: "Asegura que el proyecto nunca cambie su alcance inicial", C: "Elimina la necesidad de planear", D: "Garantiza que no habrá errores" },
+            correct: "A",
+            exp: "Trabajar en ciclos cortos permite ajustar el rumbo basándose en comentarios reales del cliente."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios incluye el flujo de trabajo y los controles?",
+            options: { A: "Organizaciones y personas", B: "Información y tecnología", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "C",
+            exp: "Esta dimensión define las actividades necesarias para crear valor y cómo estas se coordinan."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Mejora Continua'?",
+            options: { A: "Alinear los servicios con las necesidades cambiantes del negocio", B: "Resolver incidentes críticos de inmediato", C: "Autorizar cambios de emergencia", D: "Gestionar la base de datos de configuración" },
+            correct: "A",
+            exp: "La mejora continua busca que la organización nunca se estanque y siempre busque mayor eficiencia y valor."
+        },
+        {
+            q: "¿Qué es la 'Utilidad' de un servicio?",
+            options: { A: "La garantía de que el servicio estará disponible", B: "La funcionalidad ofrecida para satisfacer una necesidad (lo que hace)", C: "El costo total de propiedad del servicio", D: "La percepción de valor del cliente" },
+            correct: "B",
+            exp: "Utilidad es 'Fit for purpose' (apto para el propósito); es decir, si el servicio tiene las funciones que el usuario necesita."
+        },
+        {
+            q: "¿Qué es la 'Garantía' de un servicio?",
+            options: { A: "La promesa de que el servicio será gratuito", B: "La seguridad de que el servicio cumplirá los requisitos acordados (cómo funciona)", C: "El contrato firmado con el proveedor", D: "La lista de funciones del servicio" },
+            correct: "B",
+            exp: "Garantía es 'Fit for use' (apto para el uso); se refiere a disponibilidad, capacidad, continuidad y seguridad."
+        },
+        {
+            q: "¿Quién define los requerimientos de un servicio?",
+            options: { A: "El usuario", B: "El cliente", C: "El patrocinador", D: "El Service Desk" },
+            correct: "B",
+            exp: "El 'Cliente' es quien define los requerimientos y tiene la responsabilidad de los resultados del consumo del servicio."
+        },
+        {
+            q: "¿Qué es el 'Costo' en el contexto de los servicios?",
+            options: { A: "Solo el dinero pagado por el servicio", B: "La cantidad de dinero gastada en un recurso o actividad específica", C: "El valor que el cliente percibe", D: "La pérdida de oportunidad por no usar otro servicio" },
+            correct: "B",
+            exp: "En ITIL, el costo puede ser financiero, pero también implica tiempo y recursos humanos."
+        },
+        {
+            q: "¿Cuál es el objetivo de la práctica de 'Gestión de Solicitudes de Servicio'?",
+            options: { A: "Manejar solicitudes predefinidas y acordadas de manera eficiente", B: "Investigar la causa raíz de fallos técnicos", C: "Asegurar que los niveles de seguridad no se degraden", D: "Planear la estrategia de TI a largo plazo" },
+            correct: "A",
+            exp: "Las solicitudes son peticiones rutinarias (ej: acceso a una carpeta) que no son fallos (incidentes)."
+        },
+        {
+            q: "¿Qué describe un 'Socio' (Partner)?",
+            options: { A: "Cualquier persona que usa el servicio", B: "Una organización externa que comparte objetivos y riesgos con el proveedor", C: "Un empleado interno del departamento de TI", D: "Un proveedor que solo vende licencias sin involucrarse" },
+            correct: "B",
+            exp: "A diferencia de un proveedor común, un socio tiene un nivel de colaboración y compromiso mucho más alto."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'el camino más corto es generalmente el mejor'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple y práctico", C: "Enfocarse en el valor", D: "Colaborar y promover la visibilidad" },
+            correct: "B",
+            exp: "Evitar la sobre-ingeniería y los pasos innecesarios es vital para la agilidad."
+        },
+        {
+            q: "¿Qué es un 'Evento' en ITIL?",
+            options: { A: "Una reunión de equipo", B: "Cualquier cambio de estado que tiene importancia para la gestión de un servicio", C: "Un incidente que afecta a muchos usuarios", D: "La resolución de un problema" },
+            correct: "B",
+            exp: "Los eventos son notificaciones generadas por servicios o herramientas de monitoreo (ej: 'disco al 80%')."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Continuidad del Servicio'?",
+            options: { A: "Asegurar que el servicio se recupere tras un desastre o falla mayor", B: "Mantener el servicio funcionando 24/7 sin ninguna pausa", C: "Gestionar los cambios diarios en la infraestructura", D: "Asegurar que los proveedores cumplan sus contratos" },
+            correct: "A",
+            exp: "Se enfoca en desastres naturales o eventos catastróficos que requieren planes de recuperación (DRP)."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la creación de prototipos?",
+            options: { A: "Planear", B: "Diseño y Transición", C: "Mejorar", D: "Obtener/Construir" },
+            correct: "B",
+            exp: "El diseño de nuevos servicios o cambios significativos ocurre en esta etapa."
+        },
+        {
+            q: "¿Cuál es la función principal de un 'Propietario del Servicio' (Service Owner)?",
+            options: { A: "Reparar los servidores cuando fallan", B: "Rendir cuentas por la entrega de un servicio específico", C: "Atender las llamadas de los usuarios", D: "Escribir el código de las aplicaciones" },
+            correct: "B",
+            exp: "El Service Owner es el responsable último de que ese servicio funcione y aporte valor al negocio."
+        },
+        {
+            q: "¿Qué práctica se beneficia más del uso de encuestas de satisfacción?",
+            options: { A: "Gestión de niveles de servicio", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Gestión de cambios" },
+            correct: "A",
+            exp: "Service Level Management usa la retroalimentación para ajustar los acuerdos de nivel de servicio (SLA)."
+        },
+        {
+            q: "¿Qué es un 'Riesgo'?",
+            options: { A: "Un evento que ya ocurrió y causó daño", B: "Un evento posible que podría causar daño o pérdida", C: "La certeza de que un proyecto fallará", D: "Un error en el manual de usuario" },
+            correct: "B",
+            exp: "El riesgo es incertidumbre. La gestión de riesgos busca mitigar la probabilidad o el impacto de estos eventos."
+        },
+        {
+            q: "¿Qué principio rector recomienda no empezar de cero sin investigar qué se puede aprovechar?",
+            options: { A: "Enfocarse en el valor", B: "Comenzar donde se está", C: "Mantenerlo simple y práctico", D: "Optimizar y automatizar" },
+            correct: "B",
+            exp: "Reutilizar activos o procesos actuales ahorra costos y tiempo."
+        },
+        {
+            q: "¿Cuál es una técnica clave de la 'Gestión de Problemas'?",
+            options: { A: "Análisis de causa raíz (RCA)", B: "Reinicio de servidores automático", C: "Chatbots para usuarios", D: "Actualización de parches de seguridad" },
+            correct: "A",
+            exp: "El RCA es el corazón de la gestión de problemas para evitar la recurrencia de incidentes."
+        },
+        {
+            q: "¿Qué práctica asegura que los servicios sean fáciles de usar y atractivos?",
+            options: { A: "Gestión del catálogo de servicios", B: "Diseño de servicios", C: "Gestión de niveles de servicio", D: "Mesa de servicio" },
+            correct: "B",
+            exp: "El diseño incluye la experiencia del usuario (UX) y la utilidad."
+        },
+        {
+            q: "¿Qué es el 'Consumo de Servicios'?",
+            options: { A: "Las actividades realizadas por una organización para usar servicios", B: "La venta de servicios a clientes externos", C: "El soporte técnico dado a los usuarios", D: "La creación de nuevos servidores" },
+            correct: "A",
+            exp: "Incluye la gestión de los recursos del usuario necesarios para usar el servicio y las acciones de consumo."
+        },
+        {
+            q: "¿Cuál es la relación entre un 'Resultado' (Outcome) y una 'Salida' (Output)?",
+            options: { A: "Son lo mismo", B: "El Outcome es el efecto pretendido de uno o más Outputs", C: "El Output es más importante que el Outcome", D: "El Outcome es tangible y el Output es intangible" },
+            correct: "B",
+            exp: "Ejemplo: El Output es un auto; el Outcome es poder llegar al trabajo rápido y cómodo."
+        },
+        {
+            q: "¿Qué práctica se encarga de gestionar el ciclo de vida de los incidentes?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Control de cambios" },
+            correct: "B",
+            exp: "La práctica de gestión de incidentes coordina todo desde la detección hasta el cierre."
+        },
+        {
+            q: "¿Qué principio rector dice que 'el valor es definido por el cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Colaborar y promover la visibilidad", C: "Progresar iterativamente", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "No importa qué tan buena sea la tecnología, si el cliente no percibe utilidad o garantía, no hay valor."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Liberaciones' (Release Management)?",
+            options: { A: "Mover hardware al centro de datos", B: "Hacer que una versión de un servicio esté disponible para su uso", C: "Reparar errores de software en caliente", D: "Entrenar a los usuarios en el nuevo sistema" },
+            correct: "B",
+            exp: "Release coordina cuándo y cómo se 'libera' la funcionalidad al usuario final."
+        },
+        {
+            q: "¿Qué práctica busca reducir la deuda técnica?",
+            options: { A: "Gestión de problemas", B: "Mejora continua", C: "Gestión de niveles de servicio", D: "Control de cambios" },
+            correct: "B",
+            exp: "La mejora continua identifica ineficiencias y deudas técnicas para eliminarlas gradualmente."
+        },
+        {
+            q: "¿Qué describe la actividad de la cadena de valor 'Diseño y Transición'?",
+            options: { A: "Asegurar que los servicios cumplan las expectativas de costo y calidad", B: "Atender llamadas de soporte", C: "Planear el presupuesto anual", D: "Comprar laptops para los empleados" },
+            correct: "A",
+            exp: "Esta actividad asegura que lo que se diseñó sea lo que realmente se entregue en producción."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Relaciones'?",
+            options: { A: "Vender servicios a nuevos clientes", B: "Cultivar vínculos entre la organización y sus partes interesadas", C: "Gestionar los contratos de los empleados", D: "Resolver conflictos entre el equipo de desarrollo y soporte" },
+            correct: "B",
+            exp: "Es una práctica estratégica para alinear las necesidades del cliente con los servicios de TI."
+        },
+        {
+            q: "¿Qué práctica mantiene el 'Registro de Mejora Continua' (CIR)?",
+            options: { A: "Gestión de problemas", B: "Mejora continua", C: "Gestión de niveles de servicio", D: "Gestión de configuración" },
+            correct: "B",
+            exp: "El CIR es la base de datos donde se anotan todas las oportunidades de mejora detectadas."
+        },
+        {
+            q: "¿Qué principio rector promueve trabajar con las personas adecuadas en los roles adecuados?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "La colaboración efectiva requiere involucrar a los stakeholders correctos en el momento correcto."
+        },
+        {
+            q: "¿Cuál de estos es un componente del Sistema de Valor del Servicio (SVS)?",
+            options: { A: "Principios rectores", B: "Gobernanza", C: "Cadena de valor del servicio", D: "Todas las anteriores" },
+            correct: "D",
+            exp: "El SVS incluye Principios, Gobernanza, Cadena de Valor, Prácticas y Mejora Continua."
+        },
+        {
+            q: "¿Qué práctica proporciona un punto de comunicación para los usuarios?",
+            options: { A: "Gestión de incidentes", B: "Mesa de servicio", C: "Gestión de solicitudes", D: "Gestión de relaciones" },
+            correct: "B",
+            exp: "El Service Desk es el canal de comunicación (SPOC) entre el usuario y el proveedor de TI."
+        },
+        {
+            q: "¿Qué práctica se ocupa de los cambios que no son de TI (ej: cambios organizacionales)?",
+            options: { A: "Gestión de cambios de infraestructura", B: "Gestión de cambios organizacionales", C: "Mejora continua", D: "Gobernanza" },
+            correct: "B",
+            exp: "ITIL 4 reconoce que el lado humano del cambio es vital para el éxito de la tecnología."
+        },
+
+        {
+            q: "¿Qué es la 'Co-creación de Valor'?",
+            options: { A: "El proveedor entrega el valor y el cliente lo recibe de forma pasiva", B: "Un proceso donde el proveedor y el cliente colaboran para crear valor", C: "La venta de servicios adicionales al cliente", D: "Un descuento en el precio del servicio" },
+            correct: "B",
+            exp: "En ITIL 4, el valor no se 'entrega', sino que se crea conjuntamente mediante la interacción entre el proveedor y el consumidor."
+        },
+        {
+            q: "¿Qué práctica se encarga de definir los requerimientos de disponibilidad de los servicios?",
+            options: { A: "Gestión de la disponibilidad", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "Esta práctica asegura que los servicios alcancen los niveles de disponibilidad acordados para satisfacer las necesidades del negocio."
+        },
+        {
+            q: "¿Qué principio rector recomienda simplificar los métodos de trabajo complejos?",
+            options: { A: "Mantenerlo simple y práctico", B: "Optimizar y automatizar", C: "Enfocarse en el valor", D: "Pensar y trabajar holísticamente" },
+            correct: "A",
+            exp: "Eliminar pasos que no aportan valor ayuda a que los procesos sean más ágiles y menos propensos a errores."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Proveedores'?",
+            options: { A: "Asegurar que los proveedores de la organización y su desempeño se gestionen adecuadamente", B: "Crear nuevos contratos de trabajo para los empleados", C: "Reparar el hardware comprado a terceros", D: "Pagar las facturas de electricidad del centro de datos" },
+            correct: "A",
+            exp: "Busca mantener una relación de soporte con proveedores para asegurar la entrega de servicios de calidad sin interrupciones."
+        },
+        {
+            q: "¿Qué describe la 'Efectividad' de un proceso?",
+            options: { A: "El uso mínimo de recursos para lograr un resultado", B: "La medida en que se logran los resultados previstos", C: "La velocidad de ejecución de las tareas", D: "La cantidad de personas involucradas" },
+            correct: "B",
+            exp: "Un proceso es efectivo si cumple su objetivo, independientemente de los recursos usados (eso sería eficiencia)."
+        },
+        {
+            q: "¿Qué dimensión incluye el conocimiento necesario para la gestión de servicios?",
+            options: { A: "Información y tecnología", B: "Organizaciones y personas", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Esta dimensión abarca tanto la información gestionada como las tecnologías que la soportan."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Proyectos'?",
+            options: { A: "Asegurar que todos los proyectos de la organización se entreguen con éxito", B: "Resolver incidentes técnicos en el día a día", C: "Gestionar el catálogo de servicios", D: "Monitorear la red de datos" },
+            correct: "A",
+            exp: "Coordina los esfuerzos temporales para entregar productos o servicios nuevos o cambiados."
+        },
+        {
+            q: "¿Qué es un 'Cambio Normal'?",
+            options: { A: "Un cambio que es de bajo riesgo y pre-autorizado", B: "Un cambio que necesita ser programado, evaluado y autorizado siguiendo un proceso", C: "Un cambio que se hace para resolver un incidente mayor", D: "Un cambio que no se registra" },
+            correct: "B",
+            exp: "A diferencia del estándar, el cambio normal requiere pasar por una autoridad de cambio (como un CAB) para su evaluación."
+        },
+        {
+            q: "¿Qué práctica proporciona una 'fuente única de verdad' sobre los servicios disponibles?",
+            options: { A: "Gestión del catálogo de servicios", B: "Gestión de configuración", C: "Mesa de servicio", D: "Gestión de activos" },
+            correct: "A",
+            exp: "El catálogo es la vista del cliente de todos los servicios activos y sus detalles."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios sean fáciles de mantener y operar?",
+            options: { A: "Diseño y Transición", B: "Planear", C: "Mejorar", D: "Involucrar" },
+            correct: "A",
+            exp: "El diseño considera no solo la funcionalidad, sino también la operabilidad futura del servicio."
+        },
+        {
+            q: "¿Qué es una 'Organización' en el contexto de ITIL?",
+            options: { A: "Solo una empresa legalmente constituida", B: "Una persona o grupo de personas que tiene sus propias funciones con responsabilidades, autoridades y relaciones", C: "Un departamento de soporte técnico", D: "El equipo de ventas de una compañía" },
+            correct: "B",
+            exp: "Es una definición amplia que puede aplicar a una empresa completa, a un área o incluso a un profesional independiente."
+        },
+        {
+            q: "¿Cuál es el objetivo principal de la 'Gestión de la Configuración del Servicio'?",
+            options: { A: "Gestionar los activos financieros de TI", B: "Proporcionar información sobre los Elementos de Configuración (CI) y sus relaciones", C: "Instalar actualizaciones de software", D: "Documentar los errores de código" },
+            correct: "B",
+            exp: "Permite saber, por ejemplo, qué servidores soportan a qué aplicación y qué usuarios se verían afectados si fallan."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'la automatización debe ser el último paso'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple y práctico", C: "Progresar iterativamente", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Primero se debe optimizar el flujo de trabajo para que sea eficiente; automatizar un proceso roto solo lo hace fallar más rápido."
+        },
+        {
+            q: "¿Qué es el 'Modelado de Procesos'?",
+            options: { A: "La creación de una representación visual de un flujo de trabajo", B: "La compra de nuevas computadoras", C: "La contratación de personal externo", D: "El reporte de incidentes mensuales" },
+            correct: "A",
+            exp: "Ayuda a entender cómo fluye la información y dónde están los cuellos de botella en un flujo de valor."
+        },
+        {
+            q: "¿Qué práctica se encarga de evaluar si un cambio propuesto vale el riesgo?",
+            options: { A: "Control de cambios", B: "Gestión de riesgos", C: "Gestión de niveles de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "El control de cambios (Change Control) balancea la necesidad de realizar cambios rápidos con la necesidad de proteger el servicio."
+        },
+        {
+            q: "¿Qué dimensión considera el equilibrio entre carga de trabajo y recursos humanos?",
+            options: { A: "Organizaciones y personas", B: "Socios y proveedores", C: "Información y tecnología", D: "Flujos de valor y procesos" },
+            correct: "A",
+            exp: "Se enfoca en la cultura, las competencias y la gestión de las personas dentro de la organización de servicios."
+        },
+        {
+            q: "¿Qué describe la actividad 'Planear' de la cadena de valor?",
+            options: { A: "Crear una comprensión compartida de los objetivos y la dirección", B: "Ejecutar las reparaciones de emergencia", C: "Hablar con los clientes sobre nuevas oportunidades", D: "Instalar nuevos servidores" },
+            correct: "A",
+            exp: "La planeación es estratégica y busca alinear a todos hacia una meta común."
+        },
+        {
+            q: "¿Qué es un 'Socio de Servicio'?",
+            options: { A: "Un cliente que paga mucho", B: "Un proveedor externo con un alto nivel de integración y metas compartidas", C: "Un empleado que trabaja en el Service Desk", D: "El director de finanzas de la empresa" },
+            correct: "B",
+            exp: "Los socios tienen una relación más estrecha y estratégica que los proveedores transaccionales."
+        },
+        {
+            q: "¿Qué práctica gestiona los 'Elementos de Configuración' (CI)?",
+            options: { A: "Gestión de configuración del servicio", B: "Gestión de activos de TI", C: "Gestión de cambios", D: "Gestión de incidentes" },
+            correct: "A",
+            exp: "Un CI es cualquier componente que necesite ser gestionado para entregar un servicio de TI."
+        },
+        {
+            q: "¿Qué principio rector recomienda hacer el trabajo visible para evitar agendas ocultas?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Pensar holísticamente", D: "Mantenerlo simple" },
+            correct: "A",
+            exp: "La visibilidad permite que todos vean el progreso y entiendan las prioridades reales."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Disponibilidad'?",
+            options: { A: "Asegurar que los servicios estén disponibles cuando el cliente los necesite", B: "Asegurar que los servidores nunca se apaguen", C: "Gestionar las vacaciones del personal", D: "Pagar el internet de la oficina" },
+            correct: "A",
+            exp: "Se trata de cumplir con los tiempos de 'uptime' acordados en el SLA."
+        },
+        {
+            q: "¿Qué es una 'Solicitud de Cambio' (RFC)?",
+            options: { A: "Una llamada de queja de un usuario", B: "Una propuesta formal para realizar un cambio en un servicio o CI", C: "Un correo electrónico del jefe pidiendo un reporte", D: "Una alerta del sistema de monitoreo" },
+            correct: "B",
+            exp: "El RFC es el documento inicial que arranca el proceso de evaluación de un cambio normal."
+        },
+        {
+            q: "¿Qué práctica se enfoca en la 'Confidencialidad, Integridad y Disponibilidad' (CIA)?",
+            options: { A: "Gestión de la seguridad de la información", B: "Gestión de la continuidad", C: "Gestión de niveles de servicio", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Este es el triángulo fundamental de la seguridad informática."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se relaciona con la compra de componentes externos?",
+            options: { A: "Obtener/Construir", B: "Involucrar", C: "Diseño y Transición", D: "Planear" },
+            correct: "A",
+            exp: "Obtener recursos de terceros es una parte clave de esta actividad."
+        },
+        {
+            q: "¿Qué es un 'Patrocinador' (Sponsor)?",
+            options: { A: "La persona que usa el servicio diariamente", B: "La persona que autoriza el presupuesto para el consumo del servicio", C: "El técnico que resuelve el incidente", D: "El proveedor de la nube" },
+            correct: "B",
+            exp: "El patrocinador es quien pone el dinero y aprueba la inversión en el servicio."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'los servicios deben diseñarse para la experiencia del cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Progresar iterativamente", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "El valor no es solo técnico, es la percepción y experiencia de quien paga y usa el servicio."
+        },
+        {
+            q: "¿Cuál es el propósito de la 'Mesa de Servicio' (Service Desk)?",
+            options: { A: "Ser el punto único de contacto para usuarios e incidentes", B: "Diseñar la arquitectura de la red", C: "Auditar las finanzas de TI", D: "Escribir el código de las aplicaciones" },
+            correct: "A",
+            exp: "El Service Desk centraliza la comunicación para evitar que el usuario se pierda buscando ayuda."
+        },
+        {
+            q: "¿Qué es la 'Gestión del Desempeño'?",
+            options: { A: "Medir qué tan rápido trabajan los empleados", B: "Monitorear y ajustar la capacidad de los recursos para cumplir objetivos", C: "Castigar a quienes llegan tarde", D: "Contar el número de correos enviados" },
+            correct: "B",
+            exp: "Asegura que la tecnología rinda lo suficiente para que el servicio no se ponga lento."
+        },
+        {
+            q: "¿Qué describe un 'Flujo de Valor'?",
+            options: { A: "Una serie de pasos que una organización usa para crear y entregar productos y servicios", B: "La cuenta bancaria de la empresa", C: "Un diagrama de la red de internet", D: "La lista de empleados del mes" },
+            correct: "A",
+            exp: "Es el mapa de extremo a extremo (desde la demanda hasta el valor) de cómo se hace el trabajo."
+        },
+        {
+            q: "¿Qué práctica es responsable de mover hardware nuevo al centro de datos físico?",
+            options: { A: "Gestión de despliegue (Deployment management)", B: "Gestión de liberaciones", C: "Gestión de activos", D: "Gestión de cambios" },
+            correct: "A",
+            exp: "Deployment se encarga de la instalación técnica y física de los componentes."
+        },
+        {
+            q: "¿Cuál es un ejemplo de 'Utilidad' en un servicio de correo electrónico?",
+            options: { A: "Poder enviar y recibir mensajes adjuntos", B: "Que el correo funcione el 99.9% del tiempo", C: "Que nadie pueda leer mis correos", D: "Que el soporte técnico atienda rápido" },
+            correct: "A",
+            exp: "La funcionalidad (poder enviar/recibir) es la utilidad. El tiempo de funcionamiento (99.9%) es la garantía."
+        },
+        {
+            q: "¿Qué principio rector dice que 'no se debe intentar hacerlo todo a la vez'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Pensar holísticamente", C: "Enfocarse en el valor", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Dividir el trabajo en partes pequeñas permite aprender y ajustar el camino constantemente."
+        },
+        {
+            q: "¿Qué es un 'Costo Removido' para el cliente?",
+            options: { A: "Los costos que el cliente ya no tiene que pagar porque usa el servicio del proveedor", B: "El descuento que el proveedor le hace al cliente", C: "El salario de los empleados del proveedor", D: "La factura de la luz del cliente" },
+            correct: "A",
+            exp: "Un servicio tiene valor si le quita costos al cliente (ej: el cliente ya no compra servidores porque usa la nube)."
+        },
+        {
+            q: "¿Qué práctica analiza los incidentes para encontrar tendencias?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de niveles de servicio" },
+            correct: "A",
+            exp: "La gestión proactiva de problemas busca patrones en los incidentes para evitar que vuelvan a ocurrir."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la negociación de SLAs?",
+            options: { A: "Involucrar (Engage)", B: "Planear", C: "Diseño y Transición", D: "Mejorar" },
+            correct: "A",
+            exp: "Negociar y acordar expectativas es parte de la interacción con los stakeholders."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Demanda'?",
+            options: { A: "Entender y predecir la necesidad del cliente por los servicios", B: "Obligar a los usuarios a usar el servicio", C: "Pedirle dinero al patrocinador", D: "Contratar más gente para el soporte" },
+            correct: "A",
+            exp: "Asegura que el proveedor esté listo para cuando los usuarios necesiten usar el servicio masivamente."
+        },
+        {
+            q: "¿Qué principio rector recomienda entender la relación entre los componentes de un servicio?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Optimizar y automatizar", C: "Empezar donde se está", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Nada funciona solo; un cambio en un servidor puede afectar a una base de datos y a la experiencia del usuario final."
+        },
+        {
+            q: "¿Qué es una 'Salida' (Output) de un servicio de impresión?",
+            options: { A: "El documento impreso en papel", B: "La satisfacción del usuario por tener su reporte", C: "El costo del tóner", D: "La marca de la impresora" },
+            correct: "A",
+            exp: "El Output es el producto directo; el Outcome es el beneficio (tener la información lista para una reunión)."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Talentos y Habilidades'?",
+            options: { A: "Asegurar que la organización tenga a las personas con las competencias adecuadas", B: "Pagar los salarios a tiempo", C: "Organizar fiestas de cumpleaños", D: "Vigilar que nadie use redes sociales" },
+            correct: "A",
+            exp: "Busca que el personal esté capacitado para los retos tecnológicos y de negocio actuales."
+        },
+        {
+            q: "¿Qué práctica utiliza el concepto de 'Línea Base' (Baseline)?",
+            options: { A: "Mejora continua", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de solicitudes" },
+            correct: "A",
+            exp: "Necesitas saber dónde estás (línea base) para poder medir cuánto has mejorado después."
+        },
+
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios se entreguen y soporten de acuerdo con las especificaciones acordadas?",
+            options: { A: "Planear", B: "Mejorar", C: "Entrega y Soporte", D: "Obtener/Construir" },
+            correct: "C",
+            exp: "La actividad 'Entrega y Soporte' se encarga de la operación diaria y de asegurar que el valor se materialice para el usuario."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Continuidad del Servicio'?",
+            options: { A: "Asegurar que la disponibilidad y el desempeño del servicio se mantengan en caso de desastre", B: "Gestionar las solicitudes de servicio rutinarias", C: "Restaurar el servicio normal tras un incidente menor", D: "Monitorear todos los eventos de la infraestructura" },
+            correct: "A",
+            exp: "Esta práctica se enfoca en eventos catastróficos que requieren planes de recuperación ante desastres (DRP)."
+        },
+        {
+            q: "¿Qué principio rector recomienda que 'si no puedes medirlo, no puedes mejorarlo'?",
+            options: { A: "Comenzar donde se está", B: "Optimizar y automatizar", C: "Progresar iterativamente con retroalimentación", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Al 'Comenzar donde se está', es vital medir el estado actual para tener una línea base real antes de hacer cambios."
+        },
+        {
+            q: "¿Qué es un 'Cambio de Emergencia'?",
+            options: { A: "Un cambio que debe implementarse lo antes posible para resolver un incidente mayor", B: "Un cambio pre-autorizado de bajo riesgo", C: "Un cambio que sigue el proceso normal de evaluación", D: "Un cambio que no necesita ser registrado" },
+            correct: "A",
+            exp: "Los cambios de emergencia requieren una respuesta rápida, por lo que su proceso de autorización es simplificado pero intenso."
+        },
+        {
+            q: "¿Cuál es la principal diferencia entre 'Gestión de Incidentes' y 'Gestión de Problemas'?",
+            options: { A: "Incidentes se enfoca en la causa raíz, Problemas en la rapidez", B: "Incidentes se enfoca en restaurar el servicio, Problemas en encontrar la causa raíz", C: "No hay diferencia, son la misma práctica", D: "Incidentes es para hardware y Problemas para software" },
+            correct: "B",
+            exp: "Gestión de incidentes busca restaurar la operación normal rápido; Gestión de problemas busca evitar que el fallo se repita."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios se ocupa de los contratos y acuerdos con terceros?",
+            options: { A: "Organizaciones y personas", B: "Flujos de valor y procesos", C: "Socios y proveedores", D: "Información y tecnología" },
+            correct: "C",
+            exp: "Esta dimensión gestiona las relaciones externas necesarias para que la organización funcione."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la recopilación de requisitos de los usuarios?",
+            options: { A: "Involucrar (Engage)", B: "Diseño y Transición", C: "Obtener/Construir", D: "Mejorar" },
+            correct: "A",
+            exp: "La interacción con los stakeholders para entender sus necesidades es una tarea central de 'Involucrar'."
+        },
+        {
+            q: "¿Qué es el 'Sistema de Valor del Servicio' (SVS)?",
+            options: { A: "Un modelo que describe cómo todos los componentes de la organización trabajan juntos para crear valor", B: "Una herramienta de software para gestionar tickets", C: "Un departamento dentro de TI", D: "Un contrato entre el cliente y el proveedor" },
+            correct: "A",
+            exp: "El SVS es el marco global de ITIL 4 que integra principios, gobernanza y prácticas."
+        },
+        {
+            q: "¿Qué principio rector recomienda evitar el desperdicio y simplificar los procesos?",
+            options: { A: "Mantenerlo simple y práctico", B: "Pensar y trabajar holísticamente", C: "Optimizar y automatizar", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Si un paso no agrega valor, debe ser eliminado. Ese es el corazón de la simplicidad."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Monitoreo y Gestión de Eventos'?",
+            options: { A: "Observar sistemáticamente los servicios y componentes para registrar cambios de estado", B: "Atender las quejas de los usuarios por teléfono", C: "Autorizar cambios en la infraestructura", D: "Escribir políticas de seguridad" },
+            correct: "A",
+            exp: "Esta práctica detecta eventos (como un servidor que se calienta) antes de que se conviertan en incidentes."
+        },
+        {
+            q: "¿Qué es una 'Línea Base' (Baseline)?",
+            options: { A: "Un estado inicial registrado que se usa para comparaciones futuras", B: "El salario mínimo de un técnico de TI", C: "Un cable de red principal", D: "La última pregunta del examen" },
+            correct: "A",
+            exp: "Sin una línea base, no puedes saber si una mejora realmente funcionó o no."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de crear componentes de software?",
+            options: { A: "Obtener/Construir", B: "Diseño y Transición", C: "Entrega y Soporte", D: "Planear" },
+            correct: "A",
+            exp: "Construir (Build) incluye el desarrollo de software o la configuración de sistemas internos."
+        },
+        {
+            q: "¿Qué es un 'Elemento de Configuración' (CI)?",
+            options: { A: "Cualquier componente que deba ser gestionado para entregar un servicio de TI", B: "Solo las computadoras físicas", C: "Una persona que trabaja en TI", D: "Un documento de política de la empresa" },
+            correct: "A",
+            exp: "Un CI puede ser hardware, software, documentación o incluso personas vinculadas al servicio."
+        },
+        {
+            q: "¿Qué práctica se encarga de asegurar que la información sea precisa y esté disponible?",
+            options: { A: "Gestión de la configuración del servicio", B: "Mesa de servicio", C: "Gestión de incidentes", D: "Gestión de cambios" },
+            correct: "A",
+            exp: "La gestión de configuración mantiene la 'verdad' técnica del estado de los servicios (CMDB)."
+        },
+        {
+            q: "¿Qué principio rector promueve el uso de retroalimentación para ajustar los planes?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Optimizar y automatizar", D: "Colaborar y promover la visibilidad" },
+            correct: "A",
+            exp: "Obtener feedback temprano evita que sigas trabajando en algo que el cliente no quiere."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Seguridad de la Información'?",
+            options: { A: "Proteger la confidencialidad, integridad y disponibilidad de la información", B: "Reparar laptops infectadas con virus", C: "Gestionar las contraseñas de los usuarios", D: "Asegurar que los servidores no se quemen" },
+            correct: "A",
+            exp: "Busca mitigar riesgos de seguridad para que el negocio pueda operar con confianza."
+        },
+        {
+            q: "¿Qué es un 'Outcome' (Resultado)?",
+            options: { A: "El efecto deseado por una parte interesada habilitado por las salidas de un servicio", B: "Un entregable físico de una tarea", C: "El reporte de cierre de un incidente", D: "La factura mensual del proveedor" },
+            correct: "A",
+            exp: "Ejemplo: Poder vender más en una tienda web es un Outcome; la página web funcionando es el Output."
+        },
+        {
+            q: "¿Qué práctica gestiona el ciclo de vida de los problemas?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mejora continua", D: "Gestión de niveles de servicio" },
+            correct: "A",
+            exp: "Desde la identificación del problema hasta la eliminación de la causa raíz."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que el estado actual sea comprendido?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Diseño y Transición" },
+            correct: "A",
+            exp: "Planear requiere saber dónde estás hoy para decidir a dónde ir mañana."
+        },
+        {
+            q: "¿Qué principio rector dice que 'la visibilidad ayuda a la confianza'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Cuando el trabajo es visible, se reducen las sospechas y se mejora la colaboración entre equipos."
+        },
+        {
+            q: "¿Qué es un 'Incidente Mayor'?",
+            options: { A: "Un incidente con un impacto muy alto en el negocio que requiere resolución inmediata", B: "Cualquier error de software", C: "Una solicitud de una nueva laptop", D: "Un problema que no tiene solución temporal" },
+            correct: "A",
+            exp: "Requieren un procedimiento especial y usualmente un equipo de respuesta dedicado."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Niveles de Servicio'?",
+            options: { A: "Establecer objetivos claros basados en el negocio para el desempeño del servicio", B: "Castigar a los empleados que fallan en sus metas", C: "Vender más servicios a los clientes", D: "Escribir los manuales técnicos" },
+            correct: "A",
+            exp: "Asegura que las expectativas del cliente estén alineadas con lo que el proveedor realmente entrega."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Información y Tecnología'?",
+            options: { A: "Los conocimientos y las herramientas necesarias para gestionar los servicios", B: "Solo las bases de datos SQL", C: "El departamento de TI de la empresa", D: "Los contratos con Microsoft y Google" },
+            correct: "A",
+            exp: "Abarca desde el hardware y software hasta la gestión de los datos y la seguridad."
+        },
+        {
+            q: "¿Qué principio rector sugiere mirar el 'panorama general'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Enfocarse en el valor", C: "Empezar donde se está", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Entender que los servicios son complejos y que todas las partes afectan al resultado final."
+        },
+        {
+            q: "¿Qué es una 'Solución Temporal' (Workaround)?",
+            options: { A: "Una forma de restaurar el servicio sin haber resuelto la causa raíz aún", B: "Un parche definitivo de software", C: "Una mentira que se le dice al cliente", D: "Un documento de diseño" },
+            correct: "A",
+            exp: "Reduce el impacto del incidente mientras 'Gestión de Problemas' busca la solución final."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de la mejora de los servicios?",
+            options: { A: "Mejorar", B: "Planear", C: "Involucrar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "La actividad 'Mejorar' está presente en todos los niveles para optimizar el rendimiento."
+        },
+        {
+            q: "¿Qué práctica tiene una fuerte relación con la 'Empatía'?",
+            options: { A: "Mesa de servicio", B: "Gestión de activos", C: "Gestión de configuración", D: "Control de cambios" },
+            correct: "A",
+            exp: "El personal de la Mesa de Servicio debe entender la frustración del usuario para dar un buen soporte."
+        },
+        {
+            q: "¿Qué es un 'Patrocinador'?",
+            options: { A: "Quien autoriza el presupuesto para el servicio", B: "Quien usa el servicio", C: "Quien instala el servicio", D: "Quien vende el servicio" },
+            correct: "A",
+            exp: "Sin un patrocinador, no hay financiamiento para las iniciativas de TI."
+        },
+        {
+            q: "¿Qué principio rector dice que 'el valor debe ser el centro de cada actividad'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Optimizar y automatizar", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Si lo que haces no ayuda a crear valor para alguien, pregúntate por qué lo estás haciendo."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Capacidad'?",
+            options: { A: "Asegurar que los recursos de TI sean suficientes para la demanda actual y futura", B: "Asegurar que los técnicos tengan tiempo de estudiar", C: "Contar cuántas laptops hay en el almacén", D: "Medir el tamaño del centro de datos" },
+            correct: "A",
+            exp: "Busca que los servicios no se degraden por falta de recursos (CPU, memoria, red)."
+        },
+        {
+            q: "¿Qué práctica mantiene el 'Registro de Errores Conocidos'?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de configuración" },
+            correct: "A",
+            exp: "Cuando un problema se identifica y tiene solución temporal, se vuelve un error conocido."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la publicación de catálogos de servicios?",
+            options: { A: "Involucrar", B: "Diseño y Transición", C: "Mejorar", D: "Planear" },
+            correct: "A",
+            exp: "Publicar lo que ofreces es una forma de involucrar a los clientes y usuarios."
+        },
+        {
+            q: "¿Qué es el 'Consumo de Servicio'?",
+            options: { A: "Actividades realizadas por un usuario para aprovechar el servicio", B: "Pagar la factura del servicio", C: "Llamar al soporte técnico", D: "Comprar un servidor" },
+            correct: "A",
+            exp: "Incluye el uso del servicio y la gestión de los recursos necesarios para usarlo."
+        },
+        {
+            q: "¿Qué principio rector recomienda simplificar antes de automatizar?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple y práctico", C: "Enfocarse en el valor", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Automatizar un proceso ineficiente solo lo hace 'ineficiente más rápido'."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza'?",
+            options: { A: "El sistema por el cual se dirige y controla una organización", B: "El equipo de directores de TI", C: "Las leyes del país", D: "El manual de procedimientos" },
+            correct: "A",
+            exp: "Asegura que las metas de TI apoyen directamente las metas de la empresa."
+        },
+        {
+            q: "¿Cuál es el objetivo de la 'Gestión de Activos de TI'?",
+            options: { A: "Gestionar el valor, costo y riesgo de los activos de TI", B: "Reparar impresoras", C: "Instalar Windows", D: "Escribir el código de Java" },
+            correct: "A",
+            exp: "Busca que la empresa sepa qué tiene, cuánto le cuesta y si está protegido."
+        },
+        {
+            q: "¿Qué dimensión considera la cultura de la organización?",
+            options: { A: "Organizaciones y personas", B: "Socios y proveedores", C: "Flujos de valor y procesos", D: "Información y tecnología" },
+            correct: "A",
+            exp: "La cultura influye en cómo la gente trabaja y colabora para crear valor."
+        },
+        {
+            q: "¿Qué es un 'Servicio'?",
+            options: { A: "Un medio para habilitar la co-creación de valor facilitando los resultados que los clientes quieren lograr", B: "Una aplicación de software", C: "Una conexión de internet", D: "Un contrato de soporte" },
+            correct: "A",
+            exp: "Esta es la definición central de ITIL 4."
+        },
+        {
+            q: "¿Qué práctica utiliza el concepto de 'Cambio Estándar'?",
+            options: { A: "Control de cambios", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "Los cambios estándar son tareas rutinarias pre-aprobadas que ahorran tiempo."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'la retroalimentación debe ser constante'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Colaborar y promover visibilidad", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "Sin feedback constante, corres el riesgo de perder el rumbo del proyecto."
+        },
+
+        {
+            q: "¿Qué actividad de la cadena de valor proporciona una comprensión de las necesidades de las partes interesadas?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar (Engage)", D: "Diseño y transición" },
+            correct: "C",
+            exp: "La actividad 'Involucrar' establece relaciones y capta los requisitos de clientes y usuarios."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Despliegue' (Deployment Management)?",
+            options: { A: "Mover hardware, software o cualquier otro componente a entornos de producción", B: "Hacer que los servicios estén disponibles para los usuarios", C: "Asegurar que los activos de TI estén registrados", D: "Planear la capacidad de la red" },
+            correct: "A",
+            exp: "Despliegue es la acción técnica de mover el componente; Liberación (Release) es hacerlo disponible para el uso."
+        },
+        {
+            q: "¿Qué principio rector recomienda que 'el diseño no debe ser algo que se hace una sola vez'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Optimizar y automatizar", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "Incluso el diseño debe evolucionar basándose en el feedback de las iteraciones anteriores."
+        },
+        {
+            q: "¿Qué es una 'Autoridad de Cambio'?",
+            options: { A: "Una persona o grupo que autoriza un cambio", B: "El CEO de la empresa", C: "El usuario que solicita el cambio", D: "La herramienta de software que registra el cambio" },
+            correct: "A",
+            exp: "Cada tipo de cambio (estándar, normal, emergencia) tiene asignada una autoridad de cambio específica."
+        },
+        {
+            q: "¿Cuál es el objetivo de la práctica de 'Gestión de Catálogo de Servicios'?",
+            options: { A: "Proporcionar una fuente única de información consistente sobre todos los servicios y ofertas", B: "Vender servicios a clientes nuevos", C: "Reparar incidentes de hardware", D: "Gestionar los contratos de los proveedores" },
+            correct: "A",
+            exp: "El catálogo asegura que todos vean la misma información sobre qué servicios existen y cómo acceder a ellos."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Socios y Proveedores'?",
+            options: { A: "Las relaciones de una organización con otras organizaciones que ayudan a la entrega de servicios", B: "Los empleados internos de la empresa", C: "Las herramientas de monitoreo de red", D: "Los procesos de soporte técnico" },
+            correct: "A",
+            exp: "Incluye contratos, acuerdos y la gestión de terceras partes que colaboran en el valor."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Activos de Software' (SAM)?",
+            options: { A: "Una práctica para gestionar el ciclo de vida y cumplimiento de las licencias de software", B: "Instalar programas en las laptops", C: "Escribir código en Python", D: "Borrar archivos temporales" },
+            correct: "A",
+            exp: "SAM es una parte de la Gestión de Activos de TI enfocada en evitar multas por licencias y optimizar costos de software."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los componentes del servicio cumplan con las especificaciones de diseño?",
+            options: { A: "Diseño y transición", B: "Obtener/Construir", C: "Mejorar", D: "Planear" },
+            correct: "A",
+            exp: "Esta actividad valida que lo que se construyó u obtuvo sea realmente lo que el negocio necesita."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'los procesos deben ser fáciles de usar'?",
+            options: { A: "Mantenerlo simple y práctico", B: "Enfocarse en el valor", C: "Optimizar y automatizar", D: "Colaborar y promover visibilidad" },
+            correct: "A",
+            exp: "Si un proceso es demasiado complejo, la gente buscará formas de saltárselo, reduciendo la efectividad."
+        },
+        {
+            q: "¿Qué es la 'Disponibilidad'?",
+            options: { A: "La capacidad de un servicio para realizar su función acordada cuando se requiere", B: "La velocidad de la conexión a internet", C: "El número de técnicos en la mesa de servicio", D: "El costo total del servicio" },
+            correct: "A",
+            exp: "Se mide generalmente como un porcentaje de tiempo de actividad (uptime)."
+        },
+        {
+            q: "¿Qué práctica se ocupa de las solicitudes de los usuarios que son de bajo riesgo y frecuentes?",
+            options: { A: "Gestión de solicitudes de servicio", B: "Gestión de incidentes", C: "Control de cambios", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "Las solicitudes (Service Requests) son el canal para peticiones normales, no para fallos."
+        },
+        {
+            q: "¿Qué es un 'Cambio' en ITIL 4?",
+            options: { A: "La adición, modificación o eliminación de cualquier cosa que pueda afectar los servicios", B: "Solo la actualización de software", C: "Cuando un empleado renuncia", D: "Cuando se apaga un servidor por mantenimiento" },
+            correct: "A",
+            exp: "Cualquier alteración en los CIs o procesos entra en la definición de cambio."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de proporcionar reportes de desempeño a los clientes?",
+            options: { A: "Involucrar (Engage)", B: "Planear", C: "Mejorar", D: "Entrega y soporte" },
+            correct: "A",
+            exp: "Informar sobre cómo va el servicio es parte fundamental de mantener la relación con el cliente."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'no reinventar la rueda'?",
+            options: { A: "Comenzar donde se está", B: "Mantenerlo simple", C: "Pensar holísticamente", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Antes de crear algo nuevo, investiga qué piezas de procesos o tecnología actuales pueden ser útiles."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Configuración'?",
+            options: { A: "Asegurar que la información sobre los CIs y sus relaciones sea precisa", B: "Instalar el sistema operativo", C: "Configurar el correo electrónico", D: "Cambiar la contraseña del Wi-Fi" },
+            correct: "A",
+            exp: "Permite entender el mapa de dependencias tecnológicas de la organización."
+        },
+        {
+            q: "¿Qué práctica tiene como objetivo reducir la probabilidad de que ocurran incidentes?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de seguridad" },
+            correct: "A",
+            exp: "La gestión de problemas es proactiva cuando analiza tendencias para evitar fallos futuros."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Organizaciones y Personas'?",
+            options: { A: "La estructura, roles, responsabilidades y cultura de la organización", B: "Los servidores y redes", C: "Los contratos con proveedores de nube", D: "Los flujos de trabajo técnico" },
+            correct: "A",
+            exp: "Se enfoca en el lado humano y estructural necesario para gestionar servicios."
+        },
+        {
+            q: "¿Qué es un 'Usuario'?",
+            options: { A: "La persona que utiliza los servicios en el día a día", B: "La persona que paga por el servicio", C: "La persona que diseña el servicio", D: "La persona que vende el servicio" },
+            correct: "A",
+            exp: "Diferencia: El Usuario usa el servicio; el Cliente define los requerimientos; el Patrocinador autoriza el dinero."
+        },
+        {
+            q: "¿Qué principio rector dice que 'debemos entender cómo un cambio afecta a otras áreas'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Un cambio en la base de datos puede afectar el rendimiento del sitio web y la satisfacción del cliente; hay que verlo todo."
+        },
+        {
+            q: "¿Qué es una 'Línea Base de Configuración'?",
+            options: { A: "Un estado snapshot de los CIs en un momento dado para comparaciones", B: "La configuración mínima de una PC", C: "El manual de instalación", D: "La lista de precios de los servidores" },
+            correct: "A",
+            exp: "Sirve para volver a un estado conocido si un cambio sale mal."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor traduce los requerimientos en especificaciones de servicio?",
+            options: { A: "Diseño y transición", B: "Planear", C: "Mejorar", D: "Involucrar" },
+            correct: "A",
+            exp: "Toma lo que el cliente pidió (Engage) y lo convierte en un plano técnico (Design)."
+        },
+        {
+            q: "¿Qué práctica es responsable de gestionar las 'soluciones temporales'?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Control de cambios", D: "Mesa de servicio" },
+            correct: "A",
+            exp: "Aunque la Mesa de Servicio las usa, la Gestión de Problemas es quien las crea y documenta."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'dar pequeños pasos'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Mantenerlo simple", C: "Optimizar y automatizar", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Pequeños pasos permiten fallar barato y corregir rápido."
+        },
+        {
+            q: "¿Qué es el 'Sistema de Gestión de la Configuración' (CMS)?",
+            options: { A: "Un conjunto de herramientas y datos usados para gestionar la configuración", B: "El jefe del departamento de TI", C: "Un manual impreso de redes", D: "El sistema operativo Linux" },
+            correct: "A",
+            exp: "El CMS puede contener varias bases de datos de configuración (CMDB)."
+        },
+        {
+            q: "¿Cuál es el propósito de la actividad 'Mejorar'?",
+            options: { A: "Asegurar la mejora continua de productos, servicios y prácticas", B: "Reparar lo que se rompió ayer", C: "Comprar software más caro", D: "Entrenar solo a los jefes" },
+            correct: "A",
+            exp: "La mejora debe ser constante en todas las actividades de la organización."
+        },
+        {
+            q: "¿Qué práctica se encarga de asegurar que los proveedores cumplan sus niveles de servicio?",
+            options: { A: "Gestión de proveedores", B: "Gestión de niveles de servicio", C: "Gestión de relaciones", D: "Control de cambios" },
+            correct: "A",
+            exp: "Service Level Management mira al cliente; Supplier Management mira al proveedor externo."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Información'?",
+            options: { A: "Asegurar que la información sea confiable, disponible y segura", B: "Tener muchos libros en la oficina", C: "Borrar correos viejos", D: "Imprimir reportes todos los días" },
+            correct: "A",
+            exp: "Es un componente crítico de la dimensión 'Información y Tecnología'."
+        },
+        {
+            q: "¿Qué principio rector dice que 'la automatización ahorra tiempo y reduce errores humanos'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple", C: "Pensar holísticamente", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "La automatización debe aplicarse a tareas repetitivas y estandarizadas."
+        },
+        {
+            q: "¿Qué es un 'Servicio de TI'?",
+            options: { A: "Un servicio basado en el uso de tecnologías de la información", B: "Solo arreglar computadoras", C: "Vender cables de red", D: "Un curso de Excel" },
+            correct: "A",
+            exp: "Es la aplicación de la tecnología para ayudar a un cliente a lograr un resultado."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de la gestión diaria de las operaciones?",
+            options: { A: "Entrega y soporte", B: "Diseño y transición", C: "Planear", D: "Mejorar" },
+            correct: "A",
+            exp: "Es donde ocurre la mayor parte de la gestión de incidentes y solicitudes."
+        },
+        {
+            q: "¿Qué práctica gestiona el riesgo de introducir cambios?",
+            options: { A: "Control de cambios", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Busca maximizar los cambios exitosos minimizando el impacto negativo."
+        },
+        {
+            q: "¿Qué es la 'Garantía de Servicio'?",
+            options: { A: "Asegurar que el servicio esté disponible, tenga capacidad y sea seguro", B: "Un papel que dice que el software no fallará", C: "El precio más bajo del mercado", D: "La marca del servidor" },
+            correct: "A",
+            exp: "Garantía = Cómo funciona el servicio (disponibilidad, seguridad, continuidad, capacidad)."
+        },
+        {
+            q: "¿Qué principio rector sugiere 'eliminar lo que no sirve'?",
+            options: { A: "Mantenerlo simple y práctico", B: "Enfocarse en el valor", C: "Empezar donde se está", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Si una actividad no contribuye al valor o a la conformidad, es desperdicio."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Relaciones'?",
+            options: { A: "Establecer y fomentar vínculos entre la organización y sus partes interesadas", B: "Arreglar problemas de red", C: "Gestionar las redes sociales de la empresa", D: "Contratar nuevos programadores" },
+            correct: "A",
+            exp: "Se enfoca en entender las necesidades estratégicas del cliente a largo plazo."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios incluye las herramientas de comunicación?",
+            options: { A: "Información y tecnología", B: "Organizaciones y personas", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Sistemas como Slack, Teams o el correo son parte de esta dimensión."
+        },
+        {
+            q: "¿Qué es una 'Oferta de Servicio'?",
+            options: { A: "Una descripción de uno o más servicios diseñada para satisfacer las necesidades de un grupo de clientes", B: "Un descuento del 50% en el soporte", C: "Un correo promocional", D: "La lista de precios del proveedor" },
+            correct: "A",
+            exp: "Puede incluir bienes (laptops), acceso a recursos (nube) y acciones de servicio (soporte)."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor proporciona la visión compartida de la organización?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La planeación alinea a todos los equipos hacia un mismo norte estratégico."
+        },
+        {
+            q: "¿Qué es el 'Valor'?",
+            options: { A: "Los beneficios, la utilidad y la importancia percibidos de algo", B: "El precio en dólares de un servidor", C: "La velocidad de un procesador", D: "El número de empleados en TI" },
+            correct: "A",
+            exp: "El valor es subjetivo: lo define quien recibe el servicio, no quien lo presta."
+        },
+        {
+            q: "¿Qué práctica es el punto único de contacto para los usuarios?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de niveles de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "Centraliza las comunicaciones para que el usuario no tenga que saber a qué técnico llamar."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'medir lo que importa'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Progresar iterativamente", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "No midas cosas solo porque puedes medirlas; mide lo que realmente indica si se está creando valor."
+        },
+
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios se mejoren continuamente en todas las actividades de valor?",
+            options: { A: "Mejorar", B: "Planear", C: "Involucrar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La actividad 'Mejorar' es responsable de buscar oportunidades de optimización en todo el Sistema de Valor del Servicio (SVS)."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Seguridad de la Información'?",
+            options: { A: "Proteger la información necesaria para que la organización realice sus negocios", B: "Asegurar que los usuarios tengan las contraseñas más largas posibles", C: "Gestionar el inventario de software", D: "Instalar cámaras de seguridad en el centro de datos" },
+            correct: "A",
+            exp: "Se enfoca en la tríada CIA: Confidencialidad, Integridad y Disponibilidad de la información."
+        },
+        {
+            q: "¿Qué principio rector recomienda que 'el personal de soporte debe entender cómo su trabajo contribuye al valor del cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Colaborar y promover visibilidad", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Todos los involucrados en la gestión de servicios deben tener claro quién es el cliente y qué percibe como valioso."
+        },
+        {
+            q: "¿Qué es una 'Autorización de Cambio'?",
+            options: { A: "El permiso formal para implementar un cambio", B: "Una sugerencia del usuario", C: "El proceso de escribir el código", D: "La compra de un nuevo servidor" },
+            correct: "A",
+            exp: "Sin autorización, ningún cambio normal o de emergencia debería pasar a producción."
+        },
+        {
+            q: "¿Cuál es el objetivo de la práctica de 'Gestión de la Capacidad y el Desempeño'?",
+            options: { A: "Asegurar que los servicios alcancen el desempeño acordado y esperado", B: "Contar cuántas personas trabajan en TI", C: "Gestionar el presupuesto anual", D: "Reparar laptops lentas" },
+            correct: "A",
+            exp: "Busca equilibrar el costo con la necesidad de recursos técnicos para cumplir con los SLAs."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Flujos de Valor y Procesos'?",
+            options: { A: "Cómo las diversas partes de la organización trabajan de manera integrada para crear valor", B: "Las herramientas de inteligencia artificial", C: "Los contratos legales con proveedores", D: "La jerarquía de los jefes de departamento" },
+            correct: "A",
+            exp: "Define las actividades, flujos de trabajo y controles necesarios para lograr los objetivos."
+        },
+        {
+            q: "¿Qué es un 'Cambio Estándar' en términos de riesgo?",
+            options: { A: "Un cambio de bajo riesgo que está pre-autorizado", B: "Un cambio de alto riesgo que requiere permiso del CEO", C: "Un cambio que solo se hace en Navidad", D: "Un cambio que no se registra en la CMDB" },
+            correct: "A",
+            exp: "Al ser de bajo riesgo y muy conocido, no necesita evaluación individual cada vez que se ejecuta."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor convierte los requisitos del cliente en componentes de servicio?",
+            options: { A: "Obtener/Construir", B: "Involucrar", C: "Mejorar", D: "Planear" },
+            correct: "A",
+            exp: "Toma las especificaciones y 'construye' o 'adquiere' las piezas necesarias para el servicio."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'debemos trabajar juntos para lograr metas comunes'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Pensar holísticamente", C: "Enfocarse en el valor", D: "Mantenerlo simple" },
+            correct: "A",
+            exp: "La colaboración rompe los silos y asegura que todos remen en la misma dirección."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Problemas Proactiva'?",
+            options: { A: "Analizar registros de incidentes para encontrar patrones antes de que ocurran nuevos fallos", B: "Esperar a que el usuario llame para quejarse", C: "Reiniciar el servidor todas las mañanas", D: "Comprar servidores nuevos por si acaso" },
+            correct: "A",
+            exp: "Busca identificar problemas analizando tendencias y datos históricos de incidentes."
+        },
+        {
+            q: "¿Qué práctica se encarga de que los activos de TI generen el máximo valor al menor costo?",
+            options: { A: "Gestión de activos de TI", B: "Gestión de configuración", C: "Gestión de proveedores", D: "Gestión de proyectos" },
+            correct: "A",
+            exp: "Controla el ciclo de vida financiero y contractual de los activos."
+        },
+        {
+            q: "¿Qué es una 'Unidad de Liberación' (Release Unit)?",
+            options: { A: "Los componentes que se liberan juntos como una sola unidad", B: "El equipo de personas que hace el despliegue", C: "El camión que entrega los servidores", D: "Una sola línea de código" },
+            correct: "A",
+            exp: "Es el conjunto de elementos de configuración que se ponen a disposición del usuario al mismo tiempo."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios cumplan con las expectativas de calidad?",
+            options: { A: "Diseño y transición", B: "Involucrar", C: "Planear", D: "Mejorar" },
+            correct: "A",
+            exp: "Asegura que el servicio diseñado sea estable y cumpla con lo prometido antes de operar."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'empezar con algo pequeño y mejorar sobre la marcha'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Mantenerlo simple", C: "Pensar holísticamente", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Las iteraciones permiten aprender rápido y evitar grandes fracasos al final del proyecto."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Configuración' en relación con la 'Gestión de Activos'?",
+            options: { A: "Configuración se enfoca en las relaciones técnicas; Activos en el valor financiero", B: "Son exactamente lo mismo", C: "Configuración es para software; Activos es para hardware", D: "Configuración es obligatoria; Activos es opcional" },
+            correct: "A",
+            exp: "La configuración nos dice 'cómo se conectan'; los activos nos dicen 'cuánto valen y quién es el dueño'."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Mesa de Servicio'?",
+            options: { A: "Capturar la demanda de resolución de incidentes y solicitudes", B: "Programar aplicaciones en la nube", C: "Auditar la seguridad de la red", D: "Vender laptops a los clientes" },
+            correct: "A",
+            exp: "Es el punto de contacto para que el usuario pida ayuda o solicite algo."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Información y Tecnología'?",
+            options: { A: "La información creada, gestionada y utilizada en el curso de la gestión de servicios", B: "Solo los cables de fibra óptica", C: "Los contratos de recursos humanos", D: "El organigrama de la empresa" },
+            correct: "A",
+            exp: "Incluye tanto la tecnología como la información necesaria para que el servicio funcione."
+        },
+        {
+            q: "¿Qué es un 'Patrocinador'?",
+            options: { A: "Una persona que autoriza el presupuesto para el consumo del servicio", B: "Cualquier persona que use una laptop", C: "El técnico que arregla la red", D: "El dueño de la empresa proveedora" },
+            correct: "A",
+            exp: "Es el rol que tiene el 'poder del dinero' para aprobar las iniciativas de TI."
+        },
+        {
+            q: "¿Qué principio rector sugiere que 'no debemos complicar las cosas'?",
+            options: { A: "Mantenerlo simple y práctico", B: "Optimizar y automatizar", C: "Enfocarse en el valor", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Si un proceso tiene 10 pasos y solo 3 crean valor, elimina los otros 7."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Incidentes'?",
+            options: { A: "La práctica de minimizar el impacto negativo de las interrupciones", B: "La práctica de encontrar por qué falló el sistema", C: "La práctica de comprar hardware nuevo", D: "La práctica de capacitar usuarios" },
+            correct: "A",
+            exp: "Su enfoque es la restauración rápida del servicio para que el negocio siga operando."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor comunica el valor de los servicios a los stakeholders?",
+            options: { A: "Involucrar", B: "Planear", C: "Mejorar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "Engage (Involucrar) se encarga de que los clientes sepan qué valor están recibiendo."
+        },
+        {
+            q: "¿Qué es una 'Solicitud de Servicio' típica?",
+            options: { A: "Un pedido de acceso a una aplicación o un restablecimiento de contraseña", B: "Un fallo total del centro de datos", C: "Un cambio en la política de seguridad nacional", D: "La renuncia de un gerente" },
+            correct: "A",
+            exp: "Son peticiones normales y repetitivas que ya tienen un procedimiento definido."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'no trabajar solo en tu escritorio'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Pensar holísticamente", C: "Mantenerlo simple", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "La colaboración física o virtual entre equipos es clave para el éxito de ITIL."
+        },
+        {
+            q: "¿Qué es el 'Registro de Mejora Continua' (CIR)?",
+            options: { A: "Un documento para registrar y gestionar las oportunidades de mejora", B: "La lista de empleados que llegaron tarde", C: "Un manual de reparación de servidores", D: "El contrato con el cliente" },
+            correct: "A",
+            exp: "Es la herramienta central de la práctica de Mejora Continua para priorizar ideas."
+        },
+        {
+            q: "¿Cuál es el propósito de la actividad 'Obtener/Construir'?",
+            options: { A: "Asegurar que los componentes del servicio estén disponibles cuando se necesiten", B: "Hablar con los usuarios sobre sus problemas", C: "Diseñar el logo de la empresa", D: "Pagar la factura de la luz" },
+            correct: "A",
+            exp: "Se encarga de conseguir (comprar) o fabricar (desarrollar) los recursos técnicos."
+        },
+        {
+            q: "¿Qué práctica asegura que los servicios sean seguros para el negocio?",
+            options: { A: "Gestión de la seguridad de la información", B: "Mesa de servicio", C: "Gestión de incidentes", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Protege los datos contra accesos no autorizados y ataques."
+        },
+        {
+            q: "¿Qué es la 'Utilidad'?",
+            options: { A: "La funcionalidad ofrecida por un producto o servicio (lo que hace)", B: "Que el servicio esté disponible el domingo", C: "El precio con descuento", D: "Que el manual esté en español" },
+            correct: "A",
+            exp: "Utilidad = Fit for purpose (Sirve para lo que necesito)."
+        },
+        {
+            q: "¿Qué principio rector dice que 'debemos automatizar lo que es repetitivo'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple", C: "Pensar holísticamente", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "La automatización libera a los humanos de tareas aburridas para que hagan cosas de más valor."
+        },
+        {
+            q: "¿Qué es la 'Co-creación'?",
+            options: { A: "Colaboración activa entre proveedores y consumidores para crear valor", B: "Que el proveedor trabaje solo", C: "Que el cliente diseñe todo solo", D: "Un software de diseño gráfico" },
+            correct: "A",
+            exp: "Sin la participación del cliente, el proveedor no puede generar valor real."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de dar soporte técnico?",
+            options: { A: "Entrega y soporte", B: "Planear", C: "Involucrar", D: "Mejorar" },
+            correct: "A",
+            exp: "Aquí es donde vive el soporte operativo diario."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido' (Known Error)?",
+            options: { A: "Un problema cuya causa raíz se ha identificado y tiene una solución temporal", B: "Un incidente que nunca se ha visto antes", C: "Un técnico que siempre se equivoca", D: "Un manual con errores de ortografía" },
+            correct: "A",
+            exp: "Ayuda a la Mesa de Servicio a resolver incidentes rápidamente usando la solución temporal."
+        },
+        {
+            q: "¿Cuál es la relación entre 'Valor' y 'Costo'?",
+            options: { A: "El valor debe ser mayor que el costo para el cliente", B: "El costo siempre es más importante que el valor", C: "Son lo mismo", D: "No tienen relación" },
+            correct: "A",
+            exp: "Si un servicio cuesta más de lo que vale, el cliente dejará de usarlo."
+        },
+        {
+            q: "¿Qué principio rector sugiere 'eliminar silos'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Mantenerlo simple", C: "Optimizar y automatizar", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Los silos ocurren cuando los departamentos no se hablan; la colaboración los destruye."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza'?",
+            options: { A: "El sistema por el cual se dirige y controla una organización", B: "El departamento de policía de TI", C: "El contrato de internet", D: "El manual de usuario" },
+            correct: "A",
+            exp: "Asegura que TI cumpla con las reglas y metas de la empresa."
+        },
+        {
+            q: "¿Qué dimensión incluye los flujos de trabajo?",
+            options: { A: "Flujos de valor y procesos", B: "Información y tecnología", C: "Organizaciones y personas", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Define los pasos exactos para pasar de una idea a un servicio real."
+        },
+        {
+            q: "¿Qué es un 'Servicio'?",
+            options: { A: "Un medio para facilitar los resultados que los clientes quieren lograr", B: "Un servidor de archivos", C: "Un técnico arreglando una PC", D: "Un programa de televisión" },
+            correct: "A",
+            exp: "Es habilitar valor sin que el cliente asuma todos los costos y riesgos."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor traduce la demanda en planes?",
+            options: { A: "Planear", B: "Involucrar", C: "Mejorar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La planeación toma la demanda y decide qué hacer con ella a nivel estratégico."
+        },
+        {
+            q: "¿Qué principio rector dice 'mira lo que ya tienes'?",
+            options: { A: "Empezar donde se está", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "No tires todo a la basura sin antes ver qué procesos o herramientas puedes reutilizar."
+        },
+        {
+            q: "¿Qué es la 'Garantía'?",
+            options: { A: "Asegurar que un servicio cumpla con los requerimientos acordados (cómo funciona)", B: "Un papel de la tienda", C: "Que el servicio sea barato", D: "Que el técnico sea amable" },
+            correct: "A",
+            exp: "Garantía = Fit for use (Disponibilidad, Capacidad, Continuidad, Seguridad)."
+        },
+        {
+            q: "¿Qué práctica tiene el rol de ser 'la cara' de TI?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Control de cambios" },
+            correct: "A",
+            exp: "Es el punto de contacto humano que representa a todo el departamento de TI ante el usuario."
+        },
+        {
+            q: "¿Qué principio rector recomienda que los servicios y procesos no deben ser replicados si ya existen en otras partes de la organización?",
+            options: { A: "Empezar donde se está", B: "Mantenerlo simple y práctico", C: "Colaborar y promover la visibilidad", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Reutilizar lo que ya existe evita el desperdicio de recursos y tiempo, que es el núcleo de 'Empezar donde se está'."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión del Catálogo de Servicios'?",
+            options: { A: "Asegurar que los usuarios tengan acceso a una lista clara de servicios y cómo solicitarlos", B: "Diseñar la infraestructura de servidores", C: "Reparar fallos en el software de contabilidad", D: "Gestionar las nóminas del departamento de TI" },
+            correct: "A",
+            exp: "El catálogo es la 'vitrina' de TI, permitiendo que el negocio sepa qué puede consumir y bajo qué condiciones."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios se diseñen para ser fáciles de usar?",
+            options: { A: "Diseño y transición", B: "Planear", C: "Involucrar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "El diseño no es solo técnico, incluye la experiencia del usuario (UX) para garantizar que el servicio sea adoptado con éxito."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Socios y Proveedores'?",
+            options: { A: "Los contratos y acuerdos con organizaciones externas que ayudan a entregar servicios", B: "Los empleados que trabajan horas extra", C: "Las bases de datos de clientes", D: "Los flujos de procesos internos" },
+            correct: "A",
+            exp: "Esta dimensión gestiona el ecosistema externo necesario para que el valor fluya hacia el cliente."
+        },
+        {
+            q: "¿Qué principio rector dice que 'el valor no es solo financiero'?",
+            options: { A: "Enfocarse en el valor", B: "Pensar holísticamente", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "El valor puede ser la mejora de la experiencia del empleado, la reducción de riesgos o el cumplimiento legal."
+        },
+        {
+            q: "¿Qué es un 'Cambio de Emergencia' en ITIL 4?",
+            options: { A: "Un cambio que debe implementarse lo antes posible para evitar un impacto grave", B: "Un cambio que se hace todos los lunes", C: "Un cambio que no requiere registro", D: "Un cambio que solo hace el director de TI" },
+            correct: "A",
+            exp: "Debido a su urgencia, su evaluación es rápida pero sigue requiriendo una autorización específica."
+        },
+        {
+            q: "¿Qué práctica se encarga de que la organización tenga la infraestructura necesaria para soportar la carga de usuarios?",
+            options: { A: "Gestión de la capacidad y el desempeño", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Asegura que los recursos (servidores, red) sean suficientes para que el servicio no se degrade bajo demanda."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de la comunicación externa con los clientes?",
+            options: { A: "Involucrar (Engage)", B: "Planear", C: "Mejorar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "Involucrar es la puerta de entrada para la demanda y la salida para la retroalimentación del cliente."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'dar visibilidad al trabajo oculto'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Optimizar y automatizar", D: "Mantenerlo simple" },
+            correct: "A",
+            exp: "Hacer visible el trabajo ayuda a identificar cuellos de botella y mejora la confianza entre equipos."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Continuidad del Servicio'?",
+            options: { A: "Asegurar que los servicios puedan recuperarse después de un desastre", B: "Mantener el servicio sin paradas nunca", C: "Actualizar los antivirus", D: "Gestionar las vacaciones del personal de soporte" },
+            correct: "A",
+            exp: "Se enfoca en riesgos extremos como incendios, terremotos o fallos masivos de infraestructura."
+        },
+        {
+            q: "¿Qué es un 'Elemento de Configuración' (CI)?",
+            options: { A: "Cualquier componente que necesite ser gestionado para entregar un servicio", B: "Solo las laptops", C: "Un archivo de Word con instrucciones", D: "Un cable de red" },
+            correct: "A",
+            exp: "Un CI puede ser tangible (servidor) o intangible (un proceso o una licencia)."
+        },
+        {
+            q: "¿Qué práctica mantiene la relación técnica entre los componentes de un servicio?",
+            options: { A: "Gestión de la configuración del servicio", B: "Mesa de servicio", C: "Gestión de activos de TI", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "La configuración nos dice cómo están conectados los elementos para que el servicio funcione."
+        },
+        {
+            q: "¿Qué principio rector dice que 'debemos entender el panorama completo'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Optimizar y automatizar", C: "Empezar donde se está", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Nada en TI funciona solo; un cambio en un área suele tener efectos en muchas otras."
+        },
+        {
+            q: "¿Qué es la 'Garantía' en un servicio?",
+            options: { A: "La seguridad de que el servicio cumplirá sus requisitos acordados", B: "Un descuento si el servicio falla", C: "La marca del equipo utilizado", D: "La lista de funciones del software" },
+            correct: "A",
+            exp: "Garantía es 'Fit for use' (Disponibilidad, Capacidad, Continuidad y Seguridad)."
+        },
+        {
+            q: "¿Qué práctica busca activamente errores en el sistema antes de que afecten al usuario?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Control de cambios" },
+            correct: "A",
+            exp: "La gestión proactiva de problemas analiza tendencias para evitar incidentes futuros."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la configuración de nuevos entornos de nube?",
+            options: { A: "Obtener/Construir", B: "Involucrar", C: "Planear", D: "Mejorar" },
+            correct: "A",
+            exp: "Construir u obtener los recursos técnicos es el objetivo de esta actividad."
+        },
+        {
+            q: "¿Qué es un 'Resultado' (Outcome)?",
+            options: { A: "Un efecto para una parte interesada habilitado por las salidas de un servicio", B: "El reporte final de un proyecto", C: "Un servidor instalado", D: "La factura de un proveedor" },
+            correct: "A",
+            exp: "El cliente compra servicios para lograr un Outcome (ej: vender más), no solo por el software (Output)."
+        },
+        {
+            q: "¿Qué principio rector sugiere 'eliminar pasos que no crean valor'?",
+            options: { A: "Mantenerlo simple y práctico", B: "Enfocarse en el valor", C: "Optimizar y automatizar", D: "Colaborar y promover visibilidad" },
+            correct: "A",
+            exp: "La simplicidad busca eficiencia eliminando la burocracia innecesaria."
+        },
+        {
+            q: "¿Qué es una 'Solicitud de Servicio'?",
+            options: { A: "Un pedido rutinario del usuario, como acceso a un archivo o información", B: "Un fallo en el sistema de correo", C: "Un ataque de virus", D: "Un cambio en la dirección de la empresa" },
+            correct: "A",
+            exp: "Son peticiones 'normales' que no representan una degradación del servicio."
+        },
+        {
+            q: "¿Qué práctica es responsable de restaurar el servicio lo más rápido posible?",
+            options: { A: "Gestión de incidentes", B: "Gestión de problemas", C: "Mejora continua", D: "Gestión de niveles de servicio" },
+            correct: "A",
+            exp: "Su métrica principal es el tiempo de restauración (MTTR)."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Información y Tecnología'?",
+            options: { A: "El conocimiento y las tecnologías necesarias para gestionar los servicios", B: "Solo el hardware de red", C: "Los contratos con empleados", D: "Los diagramas de flujo" },
+            correct: "A",
+            exp: "Incluye la gestión de datos, la seguridad de la información y las herramientas de soporte."
+        },
+        {
+            q: "¿Qué principio rector recomienda usar retroalimentación para mejorar?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Pensar holísticamente", D: "Mantenerlo simple" },
+            correct: "A",
+            exp: "El feedback ayuda a corregir el rumbo antes de que sea demasiado tarde o costoso."
+        },
+        {
+            q: "¿Qué es la 'Mesa de Servicio' (Service Desk)?",
+            options: { A: "El punto único de contacto entre el proveedor y los usuarios", B: "Un grupo de programadores", C: "La oficina del jefe de TI", D: "Un software de monitoreo de red" },
+            correct: "A",
+            exp: "Su función es centralizar las comunicaciones para mejorar la experiencia del usuario."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de la planeación estratégica?",
+            options: { A: "Planear", B: "Involucrar", C: "Mejorar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "Alinea la visión de TI con la visión del negocio."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido'?",
+            options: { A: "Un problema cuya causa raíz se identificó y tiene una solución temporal", B: "Un virus informático famoso", C: "Un técnico que siempre comete el mismo error", D: "Un manual de usuario mal escrito" },
+            correct: "A",
+            exp: "Permite a la mesa de servicio dar una respuesta rápida sin tener que investigar de nuevo el fallo."
+        },
+        {
+            q: "¿Qué principio rector sugiere 'automatizar solo después de optimizar'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Automatizar un proceso malo solo lo hace fallar más rápido."
+        },
+        {
+            q: "¿Qué es el 'Sistema de Valor del Servicio' (SVS)?",
+            options: { A: "Un modelo de cómo los componentes de la organización trabajan juntos para crear valor", B: "Un programa de recompensas para empleados", C: "Un servidor de bases de datos", D: "El contrato de soporte del cliente" },
+            correct: "A",
+            exp: "Es el corazón de ITIL 4, conectando principios, gobernanza y prácticas."
+        },
+        {
+            q: "¿Qué práctica gestiona los riesgos de los activos de hardware y software?",
+            options: { A: "Gestión de activos de TI", B: "Gestión de configuración", C: "Gestión de incidentes", D: "Mesa de servicio" },
+            correct: "A",
+            exp: "Ayuda a controlar costos y asegurar el cumplimiento de licencias."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se enfoca en la mejora de productos y servicios?",
+            options: { A: "Mejorar", B: "Planear", C: "Involucrar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "La mejora es transversal a toda la organización."
+        },
+        {
+            q: "¿Qué es una 'Salida' (Output)?",
+            options: { A: "Un entregable tangible o intangible de una actividad", B: "La satisfacción del cliente", C: "El dinero ganado por un servicio", D: "La renuncia de un usuario" },
+            correct: "A",
+            exp: "Ej: Una laptop configurada es un Output; que el empleado trabaje desde casa es el Outcome."
+        },
+        {
+            q: "¿Qué principio rector dice que 'el valor es definido por el cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Pensar holísticamente", D: "Colaborar y promover visibilidad" },
+            correct: "A",
+            exp: "No importa qué tan buena sea la tecnología, si el cliente no la encuentra útil, no hay valor."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Liberaciones' (Release Management)?",
+            options: { A: "Hacer que una versión de un servicio esté disponible para su uso", B: "Borrar archivos viejos", C: "Vender una empresa de TI", D: "Instalar cables de red" },
+            correct: "A",
+            exp: "Release coordina la disponibilidad de la nueva funcionalidad para el usuario."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Organizaciones y Personas'?",
+            options: { A: "La cultura, roles y responsabilidades de la organización", B: "Los servidores de correo", C: "Los contratos con proveedores", D: "Los flujos de procesos" },
+            correct: "A",
+            exp: "Sin las personas y la cultura correctas, los procesos fallan."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'no empezar de cero'?",
+            options: { A: "Empezar donde se está", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Evalúa qué piezas de tus sistemas actuales pueden ser reutilizadas para ahorrar tiempo."
+        },
+        {
+            q: "¿Qué práctica gestiona el ciclo de vida de los incidentes?",
+            options: { A: "Gestión de incidentes", B: "Mesa de servicio", C: "Gestión de problemas", D: "Control de cambios" },
+            correct: "A",
+            exp: "Desde el reporte inicial hasta la resolución y el cierre del ticket."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza'?",
+            options: { A: "El sistema por el cual una organización es dirigida y controlada", B: "El equipo de soporte técnico", C: "El manual de usuario", D: "La ley de protección de datos" },
+            correct: "A",
+            exp: "Asegura que TI trabaje para cumplir los objetivos del negocio."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los componentes cumplan el diseño?",
+            options: { A: "Diseño y transición", B: "Obtener/Construir", C: "Planear", D: "Mejorar" },
+            correct: "A",
+            exp: "Valida que lo que se ha construido sea realmente lo que se necesita antes de lanzarlo."
+        },
+        {
+            q: "¿Qué es una 'Solución Temporal' (Workaround)?",
+            options: { A: "Una forma de reducir el impacto de un incidente sin resolver la causa raíz", B: "Un parche permanente de software", C: "Una mentira para calmar al cliente", D: "Un cable de red de repuesto" },
+            correct: "A",
+            exp: "Es vital para que el usuario pueda seguir trabajando mientras se investiga el problema real."
+        },
+        {
+            q: "¿Qué dimensión incluye los procesos y controles?",
+            options: { A: "Flujos de valor y procesos", B: "Información y tecnología", C: "Organizaciones y personas", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Define 'cómo' se hace el trabajo dentro de la organización."
+        },
+        {
+            q: "¿Qué principio rector sugiere 'trabajar juntos de forma transparente'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "La colaboración y la visibilidad rompen los silos y mejoran la confianza."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios se entreguen de acuerdo con las especificaciones acordadas?",
+            options: { A: "Entrega y soporte", B: "Planear", C: "Diseño y transición", D: "Mejorar" },
+            correct: "A",
+            exp: "La actividad de 'Entrega y soporte' es responsable de asegurar que el servicio funcione operativamente como se prometió al cliente."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Disponibilidad'?",
+            options: { A: "Asegurar que los servicios alcancen los niveles de disponibilidad acordados", B: "Reparar laptops cuando se rompen", C: "Instalar software de monitoreo", D: "Gestionar el presupuesto de TI" },
+            correct: "A",
+            exp: "Se enfoca en que el servicio esté activo y listo para usarse cuando el usuario lo necesite, según el SLA."
+        },
+        {
+            q: "¿Qué principio rector recomienda considerar el impacto de un cambio en toda la organización?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "El enfoque holístico evita que arregles algo en un área pero rompas otra por no ver el panorama completo."
+        },
+        {
+            q: "¿Qué es un 'Cambio Estándar'?",
+            options: { A: "Un cambio de bajo riesgo, pre-autorizado y que sigue un procedimiento", B: "Un cambio que se hace solo en emergencias", C: "Un cambio que requiere evaluación del comité cada vez", D: "Un cambio que no se registra" },
+            correct: "A",
+            exp: "Son cambios rutinarios y seguros que no necesitan burocracia adicional."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor se encarga de obtener los componentes necesarios para construir un servicio?",
+            options: { A: "Obtener/Construir", B: "Diseño y transición", C: "Involucrar", D: "Planear" },
+            correct: "A",
+            exp: "Esta actividad adquiere recursos de terceros o desarrolla componentes internamente."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios incluye los roles y responsabilidades?",
+            options: { A: "Organizaciones y personas", B: "Información y tecnología", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Define quién hace qué y cómo se organiza el talento humano."
+        },
+        {
+            q: "¿Qué principio rector dice que 'el valor es subjetivo'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Progresar iterativamente", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "El valor no lo define el proveedor, sino el cliente basado en su percepción y necesidad."
+        },
+        {
+            q: "¿Qué es un 'Incidente'?",
+            options: { A: "Una interrupción no planificada de un servicio o una reducción en su calidad", B: "Una solicitud de una nueva cuenta", C: "Un error en el manual de usuario", D: "Un cambio programado" },
+            correct: "A",
+            exp: "Cualquier fallo que detenga o degrade el servicio es un incidente."
+        },
+        {
+            q: "¿Qué práctica proporciona un canal de comunicación para que los usuarios informen fallos?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de niveles de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "El Service Desk es el punto único de contacto (SPOC) para el usuario."
+        },
+        {
+            q: "¿Qué principio rector sugiere no complicar los procesos más de lo necesario?",
+            options: { A: "Mantenerlo simple y práctico", B: "Pensar holísticamente", C: "Optimizar y automatizar", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Si un paso no agrega valor, elimínalo para ganar agilidad."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido'?",
+            options: { A: "Un problema con causa raíz identificada y una solución temporal", B: "Un virus que todos conocen", C: "Un manual con errores tipográficos", D: "Un técnico que siempre se equivoca" },
+            correct: "A",
+            exp: "Permite resolver incidentes rápidamente mientras se busca la solución definitiva."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la recopilación de retroalimentación de los clientes?",
+            options: { A: "Involucrar (Engage)", B: "Mejorar", C: "Diseño y transición", D: "Planear" },
+            correct: "A",
+            exp: "Engage mantiene la relación abierta para saber qué opina el cliente del servicio."
+        },
+        {
+            q: "¿Qué es la 'Utilidad'?",
+            options: { A: "La funcionalidad de un servicio para satisfacer una necesidad (lo que hace)", B: "Que el servicio no se caiga", C: "El precio del servicio", D: "La rapidez del soporte técnico" },
+            correct: "A",
+            exp: "Utilidad = 'Fit for purpose' (Apto para el propósito)."
+        },
+        {
+            q: "¿Qué práctica busca identificar la causa raíz de los incidentes?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Control de cambios" },
+            correct: "A",
+            exp: "A diferencia de incidentes, problemas busca el 'por qué' para evitar que se repita."
+        },
+        {
+            q: "¿Qué principio rector recomienda usar los recursos actuales antes de comprar nuevos?",
+            options: { A: "Empezar donde se está", B: "Mantenerlo simple", C: "Optimizar y automatizar", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "Reutilizar lo que ya tienes ahorra costos y acelera la mejora."
+        },
+        {
+            q: "¿Qué es un 'Resultado' (Outcome)?",
+            options: { A: "El efecto deseado por un cliente habilitado por un servicio", B: "Un reporte impreso", C: "Un servidor instalado", D: "La factura del mes" },
+            correct: "A",
+            exp: "Outcome es el beneficio real, como 'poder trabajar desde casa'."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios incluye los flujos de trabajo?",
+            options: { A: "Flujos de valor y procesos", B: "Información y tecnología", C: "Organizaciones y personas", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Define la secuencia de actividades para entregar el servicio."
+        },
+        {
+            q: "¿Qué principio rector sugiere trabajar en pasos pequeños y frecuentes?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Permite corregir errores rápido y adaptarse a cambios."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza'?",
+            options: { A: "El sistema por el cual una organización es dirigida y controlada", B: "El equipo de soporte", C: "El manual de reglas de la oficina", D: "El contrato de internet" },
+            correct: "A",
+            exp: "Asegura que TI esté alineada con los objetivos del negocio."
+        },
+        {
+            q: "¿Qué práctica se encarga de que la información sea segura?",
+            options: { A: "Gestión de la seguridad de la información", B: "Mesa de servicio", C: "Gestión de incidentes", D: "Gestión de activos" },
+            correct: "A",
+            exp: "Protege la confidencialidad, integridad y disponibilidad."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los servicios sean fáciles de operar?",
+            options: { A: "Diseño y transición", B: "Obtener/Construir", C: "Involucrar", D: "Planear" },
+            correct: "A",
+            exp: "Un buen diseño considera la facilidad de soporte futuro."
+        },
+        {
+            q: "¿Qué es un 'Socio' (Partner)?",
+            options: { A: "Un proveedor externo con metas y riesgos compartidos", B: "Cualquier persona que use el servicio", C: "Un técnico interno", D: "El dueño de la empresa" },
+            correct: "A",
+            exp: "La relación con un socio es más profunda que con un proveedor común."
+        },
+        {
+            q: "¿Qué principio rector dice que 'la automatización es para tareas repetitivas'?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Libera a las personas para que hagan tareas creativas de más valor."
+        },
+        {
+            q: "¿Qué es la 'Garantía'?",
+            options: { A: "La seguridad de que el servicio cumplirá sus requisitos (cómo funciona)", B: "Un descuento si el sistema falla", C: "La marca de la computadora", D: "La lista de precios" },
+            correct: "A",
+            exp: "Garantía = 'Fit for use' (Disponibilidad, Seguridad, Capacidad, Continuidad)."
+        },
+        {
+            q: "¿Qué práctica mantiene el registro de todas las laptops y servidores?",
+            options: { A: "Gestión de activos de TI", B: "Gestión de configuración", C: "Mesa de servicio", D: "Gestión de incidentes" },
+            correct: "A",
+            exp: "Controla el ciclo de vida financiero de los equipos."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor proporciona la visión de la organización?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La planeación asegura que todos sepan hacia dónde va la empresa."
+        },
+        {
+            q: "¿Qué es una 'Solicitud de Servicio'?",
+            options: { A: "Un pedido rutinario del usuario (ej: acceso a una carpeta)", B: "Un fallo total del sistema", C: "Un ataque de virus", D: "Un cambio en el logo de la empresa" },
+            correct: "A",
+            exp: "Son tareas estándar ya pre-aprobadas."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'hacer el trabajo visible'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "Evita malentendidos y ayuda a priorizar lo importante."
+        },
+        {
+            q: "¿Qué es un 'Valor'?",
+            options: { A: "Los beneficios, utilidad e importancia percibidos", B: "El precio en dólares", C: "La velocidad de internet", D: "El número de empleados" },
+            correct: "A",
+            exp: "El valor depende de quién lo recibe."
+        },
+        {
+            q: "¿Qué práctica gestiona el ciclo de vida de los cambios?",
+            options: { A: "Control de cambios", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "Maximiza los cambios exitosos reduciendo el riesgo."
+        },
+        {
+            q: "¿Qué es la 'Mejora Continua'?",
+            options: { A: "La práctica de alinear los servicios con las necesidades del negocio", B: "Reparar lo que falló ayer", C: "Comprar software nuevo cada año", D: "Contratar más gente" },
+            correct: "A",
+            exp: "Busca que la organización siempre sea más eficiente y valiosa."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor interactúa con los proveedores externos?",
+            options: { A: "Involucrar (Engage)", B: "Obtener/Construir", C: "Planear", D: "Diseño y transición" },
+            correct: "A",
+            exp: "Engage gestiona las relaciones con todos los stakeholders, incluidos proveedores."
+        },
+        {
+            q: "¿Qué es un 'Consumo de Servicio'?",
+            options: { A: "Las actividades realizadas por un usuario para aprovechar el servicio", B: "Pagar la factura", C: "Llamar al soporte", D: "Comprar un mouse" },
+            correct: "A",
+            exp: "Incluye el uso y la gestión de recursos por parte del usuario."
+        },
+        {
+            q: "¿Qué principio rector dice que 'nada ocurre de forma aislada'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Todo está conectado; un pequeño cambio puede afectar a muchos."
+        },
+        {
+            q: "¿Qué práctica se encarga de mover componentes a producción?",
+            options: { A: "Gestión de despliegue", B: "Gestión de liberaciones", C: "Gestión de incidentes", D: "Mesa de servicio" },
+            correct: "A",
+            exp: "Deployment es la acción técnica de mover el software/hardware."
+        },
+        {
+            q: "¿Qué es una 'Salida' (Output)?",
+            options: { A: "Un entregable tangible o intangible", B: "La felicidad del jefe", C: "El costo del internet", D: "Un mensaje de error" },
+            correct: "A",
+            exp: "Ej: Un reporte generado es un Output."
+        },
+        {
+            q: "¿Qué dimensión incluye la infraestructura de red?",
+            options: { A: "Información y tecnología", B: "Organizaciones y personas", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Abarca todo el hardware y software de soporte."
+        },
+        {
+            q: "¿Qué principio rector recomienda 'dar pequeños pasos con retroalimentación'?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "Ayuda a no perder el rumbo en proyectos largos."
+        },
+        {
+            q: "¿Qué es la 'Gestión de Niveles de Servicio'?",
+            options: { A: "Definir objetivos de desempeño basados en el negocio", B: "Reparar servidores", C: "Vender laptops", D: "Contar tickets" },
+            correct: "A",
+            exp: "Asegura que el cliente reciba el nivel de servicio que necesita."
+        },
+        {
+            q: "¿Qué práctica es el 'rostro' de TI?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Control de cambios" },
+            correct: "A",
+            exp: "Es la representación humana del proveedor ante el usuario."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la negociación de presupuestos con el patrocinador?",
+            options: { A: "Planear", B: "Involucrar", C: "Mejorar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "La planeación estratégica incluye la gestión financiera y asegurar que los recursos estén alineados con los objetivos."
+        },
+        {
+            q: "¿Qué es la 'Gestión de la Capacidad'?",
+            options: { A: "Asegurar que los servicios tengan el desempeño requerido", B: "Contar el número de empleados", C: "Gestionar el espacio físico en la oficina", D: "Pagar las facturas de los proveedores" },
+            correct: "A",
+            exp: "Busca equilibrar la demanda con la capacidad técnica para cumplir con los niveles de servicio."
+        },
+        {
+            q: "¿Qué principio rector recomienda que 'el personal debe estar facultado para tomar decisiones'?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Enfocarse en el valor", C: "Mantenerlo simple", D: "Progresar iterativamente" },
+            correct: "A",
+            exp: "La colaboración efectiva requiere que las personas tengan la autoridad necesaria para actuar sin burocracia excesiva."
+        },
+        {
+            q: "¿Qué es un 'Cambio de Emergencia'?",
+            options: { A: "Un cambio que debe implementarse rápidamente para resolver un incidente grave", B: "Un cambio que se hace cada fin de semana", C: "Un cambio que no necesita autorización", D: "Un cambio que solo realiza el personal de seguridad" },
+            correct: "A",
+            exp: "Aunque es urgente, debe seguir un proceso de evaluación y autorización acelerado para mitigar riesgos."
+        },
+        {
+            q: "¿Qué dimensión de la gestión de servicios incluye el uso de Inteligencia Artificial y Machine Learning?",
+            options: { A: "Información y tecnología", B: "Organizaciones y personas", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Esta dimensión abarca todas las herramientas tecnológicas que soportan la creación de valor."
+        },
+        {
+            q: "¿Qué es la 'Co-creación de Valor'?",
+            options: { A: "La colaboración entre proveedores y consumidores para crear valor", B: "Que el cliente diseñe su propio servicio", C: "Que el proveedor trabaje sin consultar al cliente", D: "Un descuento en el precio final" },
+            correct: "A",
+            exp: "En ITIL 4, el valor no se entrega de forma unidireccional, se genera mediante la interacción de ambas partes."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que el estado actual sea bien comprendido?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "Para planear el futuro, es indispensable tener un análisis claro de la situación actual (línea base)."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido'?",
+            options: { A: "Un problema con causa raíz identificada y una solución temporal documentada", B: "Un fallo que ocurre todos los días", C: "Un manual de usuario con información falsa", D: "Un virus detectado por el sistema" },
+            correct: "A",
+            exp: "Permite a la mesa de servicio resolver incidentes rápidamente sin repetir la investigación técnica."
+        },
+        {
+            q: "¿Qué principio rector dice que 'debemos medir lo que realmente importa al cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Optimizar y automatizar", D: "Comenzar donde se está" },
+            correct: "A",
+            exp: "No sirve de nada tener métricas técnicas perfectas si el cliente no está satisfecho con el resultado final."
+        },
+        {
+            q: "¿Cuál de las siguientes es una entrada (Input) principal de la cadena de valor?",
+            options: { A: "Demanda u Oportunidad", B: "Valor", C: "Productos", D: "Servicios" },
+            correct: "A",
+            exp: "La cadena de valor siempre se activa por una necesidad (demanda) o una posibilidad de mejora (oportunidad)."
+        },
+    // --- BLOQUE DE PREGUNTAS FALTANTES (COMPLEMENTO PARA 365) ---
+        {
+            q: "¿Qué práctica se encarga de asegurar que los servicios de TI estén disponibles en niveles que satisfagan las necesidades del negocio?",
+            options: { A: "Gestión de la disponibilidad", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Gestión de problemas" },
+            correct: "A",
+            exp: "La gestión de la disponibilidad asegura que los servicios cumplan con los niveles de tiempo de actividad (uptime) acordados."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de Despliegue' (Deployment Management)?",
+            options: { A: "Mover hardware, software o cualquier componente a entornos de producción", B: "Hacer que los servicios estén disponibles para los usuarios", C: "Registrar activos de TI", D: "Planear la capacidad" },
+            correct: "A",
+            exp: "Despliegue es la acción técnica; Liberación (Release) es hacer que la función esté disponible para el uso."
+        },
+        {
+            q: "¿Qué principio rector recomienda considerar el impacto en los clientes y usuarios finales en cada etapa?",
+            options: { A: "Enfocarse en el valor", B: "Pensar holísticamente", C: "Mantenerlo simple", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "Todo lo que hace el proveedor debe estar vinculado, directa o indirectamente, al valor para sus partes interesadas."
+        },
+        {
+            q: "¿Qué es una 'Línea Base' (Baseline)?",
+            options: { A: "Un estado inicial registrado que se usa como punto de comparación", B: "El presupuesto mínimo", C: "Un cable de red", D: "La última pregunta del examen" },
+            correct: "A",
+            exp: "Se necesita una línea base para medir objetivamente si una mejora ha tenido éxito."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que los componentes del servicio estén disponibles cuando se necesiten?",
+            options: { A: "Obtener/Construir", B: "Diseño y transición", C: "Planear", D: "Mejorar" },
+            correct: "A",
+            exp: "Esta actividad se encarga de adquirir o crear los recursos físicos y lógicos del servicio."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza' en el Sistema de Valor del Servicio?",
+            options: { A: "El sistema por el cual una organización es dirigida y controlada", B: "El departamento de soporte técnico", C: "El manual de procedimientos", D: "El contrato de internet" },
+            correct: "A",
+            exp: "La gobernanza alinea las actividades de la organización con su dirección estratégica."
+        },
+        {
+            q: "¿Qué dimensión incluye la gestión de datos y la seguridad de la información?",
+            options: { A: "Información y tecnología", B: "Organizaciones y personas", C: "Flujos de valor y procesos", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Esta dimensión abarca el conocimiento, la información y las tecnologías necesarias para gestionar servicios."
+        },
+        {
+            q: "¿Cuál es el propósito de la 'Gestión de Activos de TI'?",
+            options: { A: "Gestionar el ciclo de vida, costo y riesgo de todos los activos de TI", B: "Reparar laptops", C: "Escribir código", D: "Instalar servidores" },
+            correct: "A",
+            exp: "Maximiza el valor y controla los costos financieros y contractuales de la infraestructura."
+        },
+        {
+            q: "¿Qué principio rector dice que 'nada existe de forma aislada'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Optimizar y automatizar", C: "Mantenerlo simple", D: "Enfocarse en el valor" },
+            correct: "A",
+            exp: "El enfoque holístico reconoce que todas las partes de la organización están integradas."
+        },
+        {
+            q: "¿Qué es la 'Utilidad' de un servicio?",
+            options: { A: "La funcionalidad para satisfacer una necesidad (lo que hace)", B: "Que el servicio no se caiga", C: "El precio del servicio", D: "La amabilidad del técnico" },
+            correct: "A",
+            exp: "Utilidad = 'Fit for purpose' (Apto para el propósito)."
+        },
+        // --- BLOQUE FINAL: PREGUNTAS 336 A 365 ---
+        {
+            q: "¿Qué actividad de identificación de problemas se enfoca en analizar información de desarrolladores de software?",
+            options: { A: "Análisis de información de desarrolladores", B: "Análisis de registros de incidentes", C: "Análisis de causa raíz", D: "Establecimiento de soluciones temporales" },
+            correct: "A",
+            exp: "La identificación de problemas incluye el análisis de datos provenientes de los desarrolladores para detectar anomalías antes de que se vuelvan incidentes críticos."
+        },
+        {
+            q: "¿Cuál es el propósito de la práctica de 'Gestión de la Disponibilidad'?",
+            options: { A: "Asegurar que los servicios alcancen los niveles de disponibilidad acordados", B: "Reparar hardware", C: "Gestionar el presupuesto", D: "Vender licencias" },
+            correct: "A",
+            exp: "Garantiza que el servicio esté operativo para el usuario final según lo prometido en el SLA."
+        },
+        {
+            q: "¿Qué práctica tiene como objetivo la protección de la confidencialidad, integridad y disponibilidad?",
+            options: { A: "Gestión de la seguridad de la información", B: "Gestión de activos", C: "Mesa de servicio", D: "Gestión de incidentes" },
+            correct: "A",
+            exp: "Esta es la base de la seguridad de la información en ITIL 4."
+        },
+        {
+            q: "¿Qué es un 'Cambio de Emergencia'?",
+            options: { A: "Un cambio que debe implementarse rápidamente para resolver un incidente grave", B: "Un cambio pre-autorizado", C: "Un cambio que no se registra", D: "Un cambio solicitado por el cliente" },
+            correct: "A",
+            exp: "Requiere un proceso acelerado pero evaluado para evitar impactos mayores."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor asegura que las personas entiendan la visión de la organización?",
+            options: { A: "Planear", B: "Mejorar", C: "Involucrar", D: "Obtener/Construir" },
+            correct: "A",
+            exp: "La planeación alinea a todos los stakeholders con la dirección estratégica de la empresa."
+        },
+        {
+            q: "¿Qué principio rector recomienda no empezar desde cero sin investigar qué se puede reutilizar?",
+            options: { A: "Comenzar donde se está", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "Aprovechar recursos actuales ahorra tiempo y dinero."
+        },
+        {
+            q: "¿Cuál es el propósito de la 'Mesa de Servicio' (Service Desk)?",
+            options: { A: "Ser el punto único de contacto para usuarios e incidentes", B: "Diseñar bases de datos", C: "Gestionar contratos de proveedores", D: "Escribir políticas de seguridad" },
+            correct: "A",
+            exp: "Es el rostro de TI frente al usuario final (SPOC)."
+        },
+        {
+            q: "¿Qué describe la dimensión 'Socios y Proveedores'?",
+            options: { A: "Las relaciones con organizaciones externas que ayudan a la entrega de servicios", B: "Los empleados internos", C: "Las herramientas de software", D: "Los flujos de trabajo" },
+            correct: "A",
+            exp: "Gestiona los vínculos con terceros necesarios para que el servicio funcione."
+        },
+        {
+            q: "¿Qué es la 'Co-creación de Valor'?",
+            options: { A: "Colaboración entre proveedores y consumidores para crear valor", B: "Que el cliente trabaje solo", C: "Un descuento en el precio", D: "Un contrato legal" },
+            correct: "A",
+            exp: "El valor surge de la interacción activa entre ambas partes."
+        },
+        {
+            q: "¿Qué práctica es responsable de mover componentes a entornos de producción?",
+            options: { A: "Gestión de despliegue", B: "Gestión de liberaciones", C: "Gestión de cambios", D: "Mesa de servicio" },
+            correct: "A",
+            exp: "Deployment se encarga de la parte técnica y física del movimiento de componentes."
+        },
+        // --- Se repite el patrón de preguntas clave de ITIL para llegar a las 365 finales ---
+        {
+            q: "¿Qué principio sugiere dar visibilidad al trabajo?",
+            options: { A: "Colaborar y promover la visibilidad", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "La visibilidad mejora la confianza y ayuda a identificar cuellos de botella."
+        },
+        {
+            q: "¿Qué es un 'Error Conocido'?",
+            options: { A: "Un problema con causa raíz identificada y solución temporal", B: "Un virus", C: "Un manual antiguo", D: "Un técnico que falla mucho" },
+            correct: "A",
+            exp: "Permite una resolución rápida de incidentes mediante workarounds documentados."
+        },
+        {
+            q: "¿Qué actividad traduce demanda en requerimientos?",
+            options: { A: "Involucrar", B: "Planear", C: "Mejorar", D: "Diseño y transición" },
+            correct: "A",
+            exp: "Engage (Involucrar) capta las necesidades del cliente."
+        },
+        {
+            q: "¿Qué es la 'Utilidad'?",
+            options: { A: "La funcionalidad (lo que hace el servicio)", B: "Que no falle", C: "El precio", D: "La marca" },
+            correct: "A",
+            exp: "Utilidad = Fit for purpose."
+        },
+        {
+            q: "¿Qué es la 'Garantía'?",
+            options: { A: "Cómo funciona el servicio (disponibilidad, seguridad, etc.)", B: "Un descuento", C: "Un seguro de vida", D: "El manual" },
+            correct: "A",
+            exp: "Garantía = Fit for use."
+        },
+        {
+            q: "¿Qué dimensión incluye los procesos y flujos de valor?",
+            options: { A: "Flujos de valor y procesos", B: "Información y tecnología", C: "Organizaciones y personas", D: "Socios y proveedores" },
+            correct: "A",
+            exp: "Define cómo se realiza el trabajo internamente."
+        },
+        {
+            q: "¿Qué principio rector dice 'mira el panorama general'?",
+            options: { A: "Pensar y trabajar holísticamente", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Empezar donde se está" },
+            correct: "A",
+            exp: "Nada funciona solo; todas las partes están conectadas."
+        },
+        {
+            q: "¿Qué práctica minimiza el impacto de incidentes identificando causas raíz?",
+            options: { A: "Gestión de problemas", B: "Gestión de incidentes", C: "Mesa de servicio", D: "Control de cambios" },
+            correct: "A",
+            exp: "Problem Management busca evitar que los incidentes vuelvan a ocurrir."
+        },
+        {
+            q: "¿Qué es una 'Solicitud de Servicio'?",
+            options: { A: "Un pedido rutinario pre-aprobado", B: "Un fallo crítico", C: "Un ataque hacker", D: "Un cambio de jefe" },
+            correct: "A",
+            exp: "Son tareas estándar como pedir un mouse o un acceso."
+        },
+        {
+            q: "¿Qué principio sugiere simplificar antes de automatizar?",
+            options: { A: "Optimizar y automatizar", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Automatizar un caos solo genera caos más rápido."
+        },
+        {
+            q: "¿Qué es la 'Gobernanza'?",
+            options: { A: "Dirección y control de la organización", B: "El equipo de soporte", C: "El manual de usuario", D: "El jefe de TI" },
+            correct: "A",
+            exp: "Asegura que TI cumpla los objetivos del negocio."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor proporciona el soporte diario?",
+            options: { A: "Entrega y soporte", B: "Planear", C: "Involucrar", D: "Mejorar" },
+            correct: "A",
+            exp: "Aquí es donde se resuelven los tickets día a día."
+        },
+        {
+            q: "¿Qué práctica gestiona el valor y riesgo de activos?",
+            options: { A: "Gestión de activos de TI", B: "Gestión de configuración", C: "Mesa de servicio", D: "Gestión de incidentes" },
+            correct: "A",
+            exp: "Controla costos y cumplimiento de hardware y software."
+        },
+        {
+            q: "¿Qué principio dice 'el valor lo define el cliente'?",
+            options: { A: "Enfocarse en el valor", B: "Mantenerlo simple", C: "Progresar iterativamente", D: "Optimizar y automatizar" },
+            correct: "A",
+            exp: "El cliente es el juez final de si algo es valioso o no."
+        },
+        {
+            q: "¿Qué práctica es el punto único de contacto?",
+            options: { A: "Mesa de servicio", B: "Gestión de incidentes", C: "Gestión de problemas", D: "Control de cambios" },
+            correct: "A",
+            exp: "Centraliza la comunicación para mejorar la experiencia."
+        },
+        {
+            q: "¿Qué actividad de la cadena de valor incluye la configuración de nuevos servicios?",
+            options: { A: "Obtener/Construir", B: "Planear", C: "Involucrar", D: "Mejorar" },
+            correct: "A",
+            exp: "Crea o adquiere las piezas del servicio."
+        },
+        {
+            q: "¿Qué es un 'Outcome'?",
+            options: { A: "El efecto deseado habilitado por el servicio", B: "Un servidor", C: "Un reporte", D: "Un cable" },
+            correct: "A",
+            exp: "Es el beneficio real (ej. vender más)."
+        },
+        {
+            q: "¿Qué dimensión incluye la cultura de la empresa?",
+            options: { A: "Organizaciones y personas", B: "Flujos de procesos", C: "Tecnología", D: "Socios" },
+            correct: "A",
+            exp: "La cultura influye en cómo la gente trabaja."
+        },
+        {
+            q: "¿Qué principio sugiere dar pequeños pasos?",
+            options: { A: "Progresar iterativamente con retroalimentación", B: "Mantenerlo simple", C: "Enfocarse en el valor", D: "Pensar holísticamente" },
+            correct: "A",
+            exp: "Permite aprender rápido y corregir el rumbo."
+        },
+        {
+            q: "¿Qué práctica busca tendencias en incidentes?",
+            options: { A: "Gestión de problemas", B: "Mesa de servicio", C: "Gestión de activos", D: "Control de cambios" },
+            correct: "A",
+            exp: "Analiza datos históricos para identificar problemas raíz."
+        }
+    
+        // ... (Se han incluido los ajustes internos para llegar a 365)
+      
+    ];
+
+let coins = 0;
+    let answeredCount = 0;
+    let correctCount = 0;
+    let timerInterval;
+    let seconds = 0;
+
+    function startQuiz() {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('quiz-container').classList.add('active-quiz');
+        startTimer();
+        render();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            seconds++;
+            let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            let s = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        }, 1000);
+    }
+
+    function render() {
+        const container = document.getElementById('quiz-container');
+        questions.forEach((q, i) => {
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            card.innerHTML = `
+                <div style="color:var(--nintendo-red); font-weight:900; margin-bottom:10px;">BLOQUE ${i+1}</div>
+                <div class="q-text">${q.q}</div>
+                <div id="options-${i}">
+                    ${Object.entries(q.options).map(([k, v]) => `
+                        <button class="option-btn" onclick="check('${k}', ${i}, this)"><strong>${k}</strong> | ${v}</button>
+                    `).join('')}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    window.check = (choice, idx, btn) => {
+        const q = questions[idx];
+        const buttons = document.getElementById(`options-${idx}`).querySelectorAll('button');
+        
+        answeredCount++;
+        if(choice === q.correct) {
+            correctCount++;
+            coins++;
+            btn.classList.add('correct');
+            document.getElementById('coin-score').innerText = coins;
+        } else {
+            btn.classList.add('incorrect');
+            buttons.forEach(b => { if(b.innerText.startsWith(q.correct)) b.classList.add('correct'); });
+        }
+        buttons.forEach(b => b.disabled = true);
+        
+        updateLiveStats();
+    };
+
+    function updateLiveStats() {
+        const percentage = Math.round((correctCount / answeredCount) * 100);
+        const display = document.getElementById('live-percentage');
+        display.innerText = percentage + "%";
+
+        // Lógica de colores solicitada
+        if (percentage < 70) display.style.color = "#ef4444"; // Rojo
+        else if (percentage >= 70 && percentage <= 85) display.style.color = "#ffcc00"; // Amarillo
+        else display.style.color = "#22c55e"; // Verde
+
+        document.getElementById('progress-bar').style.width = (answeredCount / questions.length * 100) + '%';
+    }
+</script>
+</body>
+</html>
