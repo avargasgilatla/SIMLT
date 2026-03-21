@@ -302,7 +302,17 @@ select.fi{cursor:pointer;}
   .ticker{display:none}
   .data-row .save-indicator{display:none}
   .cgrid,.bgrid{grid-template-columns:1fr}
-  thead th:nth-child(4),tbody td:nth-child(4){display:none}
+  /* On mobile: hide category column, keep amount visible */
+  thead th:nth-child(2),tbody td:nth-child(2){display:none}
+  /* Compact action buttons on mobile */
+  .bi{width:32px;height:32px;}
+  .bi svg{width:14px;height:14px;}
+  /* Compact table text */
+  table{font-size:12px;}
+  tbody td{padding:8px 6px;}
+  thead th{padding:6px 6px;}
+  /* Amount column right-align and bold on mobile */
+  tbody td:nth-child(4){font-size:12px;font-weight:700;}
 }
 </style>
 </head>
@@ -609,13 +619,17 @@ select.fi{cursor:pointer;}
     <div class="mprev">
       <div class="mp-name" id="ppName">—</div><div class="mp-meta" id="ppMeta">—</div>
       <div class="mp-amt neg" id="ppAmt">—</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--text3)">Saldo actual →</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--red)" id="ppSaldoPreview">—</span>
+      </div>
     </div>
     <div class="frow2">
-      <div class="fg"><label class="fl">Importe real (S/.)</label><input class="fi" id="ppAmt2" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="fg"><label class="fl">Importe real (S/.)</label><input class="fi" id="ppAmt2" type="number" step="0.01" min="0" placeholder="0.00" oninput="updatePayPreview()"></div>
       <div class="fg"><label class="fl">Fecha de pago</label><input class="fi" id="ppDate" type="date"></div>
     </div>
     <div class="fg"><label class="fl">Nota opcional</label><input class="fi" id="ppNote" type="text" placeholder="Ej. Tarjeta BCP, cuota 1/3…"></div>
-    <div class="mact"><button class="bs" onclick="closePay()">Cancelar</button><button class="bp green" onclick="confirmPay()">✓ Confirmar Pago</button></div>
+    <div class="mact"><button class="bs" onclick="closePay()">Cancelar</button><button class="bp green" onclick="confirmPay()">✓ Confirmar y descontar del saldo</button></div>
   </div>
 </div>
 
@@ -627,13 +641,17 @@ select.fi{cursor:pointer;}
     <div class="mprev">
       <div class="mp-name" id="ipName">—</div><div class="mp-meta" id="ipMeta">—</div>
       <div class="mp-amt pos" id="ipAmt">—</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--text3)">Saldo actual →</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--cyan)" id="ipSaldoPreview">—</span>
+      </div>
     </div>
     <div class="frow2">
-      <div class="fg"><label class="fl">Importe real recibido (S/.)</label><input class="fi" id="ipAmt2" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="fg"><label class="fl">Importe real recibido (S/.)</label><input class="fi" id="ipAmt2" type="number" step="0.01" min="0" placeholder="0.00" oninput="updateIncPreview()"></div>
       <div class="fg"><label class="fl">Fecha de recepción</label><input class="fi" id="ipDate" type="date"></div>
     </div>
     <div class="fg"><label class="fl">Nota opcional</label><input class="fi" id="ipNote" type="text" placeholder="Ej. Depósito BCP, descuentos incluidos…"></div>
-    <div class="mact"><button class="bs" onclick="closeInc()">Cancelar</button><button class="bp cyan" onclick="confirmInc()">↑ Confirmar Ingreso</button></div>
+    <div class="mact"><button class="bs" onclick="closeInc()">Cancelar</button><button class="bp cyan" onclick="confirmInc()">↑ Confirmar y sumar al saldo</button></div>
   </div>
 </div>
 
@@ -1292,6 +1310,24 @@ function renderBarChart(){
 // ═══════════════════════════════════════════════════════
 //  PAY MODAL
 // ═══════════════════════════════════════════════════════
+// ─ Live saldo preview in modals ─
+function updatePayPreview(){
+  const v=parseFloat(document.getElementById('ppAmt2').value);
+  const el=document.getElementById('ppSaldoPreview');
+  if(!el)return;
+  const after=isNaN(v)?SALDO_REAL:SALDO_REAL-v;
+  el.textContent=fmt(SALDO_REAL)+' → '+fmt(after);
+  el.style.color=after>=0?'var(--green)':'var(--red)';
+}
+function updateIncPreview(){
+  const v=parseFloat(document.getElementById('ipAmt2').value);
+  const el=document.getElementById('ipSaldoPreview');
+  if(!el)return;
+  const after=isNaN(v)?SALDO_REAL:SALDO_REAL+v;
+  el.textContent=fmt(SALDO_REAL)+' → '+fmt(after);
+  el.style.color='var(--cyan)';
+}
+
 function openPay(ii,mi){
   pendPay={itemIdx:ii,monthIdx:mi};
   const it=ITEMS[ii]; const amt=Math.abs(it.v[mi]);
@@ -1302,7 +1338,7 @@ function openPay(ii,mi){
   document.getElementById('ppDate').value=today();
   document.getElementById('ppNote').value='';
   document.getElementById('moPay').classList.add('open');
-  setTimeout(()=>document.getElementById('ppAmt2').focus(),100);
+  setTimeout(()=>{updatePayPreview();document.getElementById('ppAmt2').focus();},100);
 }
 function closePay(){document.getElementById('moPay').classList.remove('open');pendPay={itemIdx:null,monthIdx:null};}
 function confirmPay(){
@@ -1312,9 +1348,12 @@ function confirmPay(){
   const note=document.getElementById('ppNote').value.trim();
   if(isNaN(ra)||ra<0){showToast('Importe inválido','err');return;}
   if(!date){showToast('Selecciona la fecha','err');return;}
-  HISTORY.push({id:hSeq++,type:'pay',itemIdx:ii,monthIdx:mi,itemName:ITEMS[ii].name,cat:ITEMS[ii].cat,budgetAmt:Math.abs(ITEMS[ii].v[mi]),realAmt:ra,date,note});
+  HISTORY.push({id:hSeq++,type:'pay',itemIdx:ii,monthIdx:mi,itemName:ITEMS[ii].name,cat:ITEMS[ii].cat,budgetAmt:Math.abs(ITEMS[ii].v[mi]),realAmt:ra,date,note,saldoDelta:-ra});
+  // Deduct from current balance
+  SALDO_REAL = parseFloat((SALDO_REAL - ra).toFixed(2));
+  SALDO_UPDATED = today();
   fullRefresh(); updateBadge(); closePay();
-  showToast('✓ "'+ITEMS[ii].name+'" pagado · '+fmt(-ra));
+  showToast('✓ "'+ITEMS[ii].name+'" pagado · '+fmt(-ra)+' · Saldo: '+fmt(SALDO_REAL));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1330,7 +1369,7 @@ function openInc(ii,mi){
   document.getElementById('ipDate').value=today();
   document.getElementById('ipNote').value='';
   document.getElementById('moInc').classList.add('open');
-  setTimeout(()=>document.getElementById('ipAmt2').focus(),100);
+  setTimeout(()=>{updateIncPreview();document.getElementById('ipAmt2').focus();},100);
 }
 function closeInc(){document.getElementById('moInc').classList.remove('open');pendInc={itemIdx:null,monthIdx:null};}
 function confirmInc(){
@@ -1340,25 +1379,31 @@ function confirmInc(){
   const note=document.getElementById('ipNote').value.trim();
   if(isNaN(ra)||ra<0){showToast('Importe inválido','err');return;}
   if(!date){showToast('Selecciona la fecha','err');return;}
-  HISTORY.push({id:hSeq++,type:'inc',itemIdx:ii,monthIdx:mi,itemName:ITEMS[ii].name,cat:ITEMS[ii].cat,budgetAmt:ITEMS[ii].v[mi],realAmt:ra,date,note});
+  HISTORY.push({id:hSeq++,type:'inc',itemIdx:ii,monthIdx:mi,itemName:ITEMS[ii].name,cat:ITEMS[ii].cat,budgetAmt:ITEMS[ii].v[mi],realAmt:ra,date,note,saldoDelta:+ra});
+  // ✅ Add received amount to current balance
+  SALDO_REAL = parseFloat((SALDO_REAL + ra).toFixed(2));
+  SALDO_UPDATED = today();
   fullRefresh(); updateBadge(); closeInc();
-  showToast('↑ "'+ITEMS[ii].name+'" recibido · '+fmt(ra));
+  showToast('↑ "'+ITEMS[ii].name+'" recibido · +'+fmt(ra)+' · Saldo: '+fmt(SALDO_REAL));
 }
 
-// ─ undo from projection view ─
+// ─ undo: also revert SALDO_REAL ─
 function undoEntry(ii,mi){
   const idx=HISTORY.findIndex(h=>h.itemIdx===ii&&h.monthIdx===mi); if(idx===-1)return;
-  const name=HISTORY[idx].itemName;
-  if(!confirm('¿Deshacer el registro de "'+name+'" en '+MONTHS[mi]+'?'))return;
+  const h=HISTORY[idx];
+  if(!confirm('¿Deshacer el registro de "'+h.itemName+'" en '+MONTHS[mi]+'?\n\nEsto también revertirá el cambio en tu saldo.'))return;
+  // Revert saldo delta
+  if(h.saldoDelta) SALDO_REAL = parseFloat((SALDO_REAL - h.saldoDelta).toFixed(2));
   HISTORY.splice(idx,1); fullRefresh(); updateBadge();
-  showToast('"'+name+'" — deshecho');
+  showToast('"'+h.itemName+'" deshecho · Saldo: '+fmt(SALDO_REAL));
 }
 function undoById(id){
   const idx=HISTORY.findIndex(h=>h.id===id); if(idx===-1)return;
-  const name=HISTORY[idx].itemName;
-  if(!confirm('¿Deshacer el registro de "'+name+'"?'))return;
+  const h=HISTORY[idx];
+  if(!confirm('¿Deshacer el registro de "'+h.itemName+'"?\n\nEsto también revertirá el cambio en tu saldo.'))return;
+  if(h.saldoDelta) SALDO_REAL = parseFloat((SALDO_REAL - h.saldoDelta).toFixed(2));
   HISTORY.splice(idx,1); fullRefresh(); updateBadge(); renderHist();
-  showToast('"'+name+'" — deshecho');
+  showToast('"'+h.itemName+'" deshecho · Saldo: '+fmt(SALDO_REAL));
 }
 
 // ═══════════════════════════════════════════════════════
