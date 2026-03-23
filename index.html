@@ -1340,6 +1340,7 @@ function loadData(){
         }
       });
     }
+    normalizeHistoryIndices();
     return true;
   }catch(e){console.warn('Load failed',e);return false;}
 }
@@ -1369,6 +1370,7 @@ function applyPayload(d){
     });
   }
   localStorage.setItem(LS_KEY, JSON.stringify({...d, dataModifiedTs, ts:dataModifiedTs}));
+  normalizeHistoryIndices();
 }
 
 // Call this whenever user actually modifies data
@@ -1714,8 +1716,33 @@ const today=()=>new Date().toISOString().split('T')[0];
 const isDark=()=>document.documentElement.getAttribute('data-theme')==='dark';
 
 // ─ Is an item's month paid/received? ─
-const isPaid=(ii,mi)=>HISTORY.some(h=>h.itemIdx===ii&&h.monthIdx===mi);
-const getHist=(ii,mi)=>HISTORY.find(h=>h.itemIdx===ii&&h.monthIdx===mi);
+// Primary key: itemName + monthIdx (robust against index shifts)
+// Fallback: itemIdx + monthIdx (legacy compatibility)
+const isPaid=(ii,mi)=>{
+  const name=ITEMS[ii]?.name;
+  return HISTORY.some(h=>h.monthIdx===mi&&(h.itemName===name||(h.itemIdx===ii&&!name)));
+};
+const getHist=(ii,mi)=>{
+  const name=ITEMS[ii]?.name;
+  return HISTORY.find(h=>h.monthIdx===mi&&(h.itemName===name||(h.itemIdx===ii&&!name)));
+};
+
+// ─ Repair itemIdx values in HISTORY/DEFERRED that may have drifted ─
+// Called once after loadData. Ensures itemIdx always matches current ITEMS position.
+function normalizeHistoryIndices(){
+  const nameToIdx={};
+  ITEMS.forEach((it,i)=>{ if(it.name) nameToIdx[it.name]=i; });
+  HISTORY.forEach(h=>{
+    if(h.itemName && nameToIdx[h.itemName]!==undefined){
+      h.itemIdx=nameToIdx[h.itemName];
+    }
+  });
+  DEFERRED.forEach(d=>{
+    if(d.itemName && nameToIdx[d.itemName]!==undefined){
+      d.itemIdx=nameToIdx[d.itemName];
+    }
+  });
+}
 
 // ─ Total real income received up to and including month mi ─
 function totalRealInc(upToMi){
@@ -2339,12 +2366,14 @@ function confirmInc(){
 
 // ─ undo: also revert SALDO_REAL ─
 function undoEntry(ii,mi){
-  const idx=HISTORY.findIndex(h=>h.itemIdx===ii&&h.monthIdx===mi); if(idx===-1)return;
+  // Match by name + monthIdx for robustness
+  const name=ITEMS[ii]?.name;
+  const idx=HISTORY.findIndex(h=>h.monthIdx===mi&&(h.itemName===name||(h.itemIdx===ii&&!name)));
+  if(idx===-1)return;
   const h=HISTORY[idx];
   if(!confirm('¿Deshacer el registro de "'+h.itemName+'" en '+MONTHS[mi]+'?\n\nEsto también revertirá el cambio en tu saldo.'))return;
-  // Revert saldo delta
   if(h.saldoDelta) SALDO_REAL = parseFloat((SALDO_REAL - h.saldoDelta).toFixed(2));
-  HISTORY.splice(idx,1); fullRefresh(); updateBadge();
+  HISTORY.splice(idx,1); markModified(); fullRefresh(); updateBadge();
   showToast('"'+h.itemName+'" deshecho · Saldo: '+fmt(SALDO_REAL));
 }
 function undoById(id){
