@@ -766,6 +766,67 @@ select.fi{cursor:pointer;}
   </div>
 </div>
 
+<!-- ══ MODAL EDITAR CONCEPTO ══ -->
+<div class="mo" id="moEdit">
+  <div class="mbox">
+    <div class="mtitle">
+      <span class="ico" style="background:var(--yellow)">✎</span>
+      <div>
+        <div id="editTitleLbl" style="font-size:19px;font-weight:700">Editar concepto</div>
+        <div id="editSubLbl" style="font-size:11px;color:var(--text3);font-weight:400;font-family:'Barlow',sans-serif;margin-top:2px">Los cambios de nombre, vencimiento y observación aplican a todos los meses</div>
+      </div>
+    </div>
+    <button class="mclose" onclick="closeEditModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+
+    <div class="frow2">
+      <div class="fg" style="grid-column:1/-1"><label class="fl">Nombre del concepto</label>
+        <input class="fi" id="eName" type="text" placeholder="Ej. Alquiler, Luz, Netflix…">
+      </div>
+    </div>
+    <div class="frow2">
+      <div class="fg"><label class="fl">Categoría</label>
+        <select class="fi" id="eCat">
+          <option>Ingreso</option><option>Vivienda</option><option>Educación</option>
+          <option>Transporte</option><option>Familia</option><option>Comunicación</option>
+          <option>Salud</option><option>Profesional</option><option>Especial</option><option>Otros</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Día de vencimiento</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input class="fi" id="eDueDay" type="number" min="1" max="31" placeholder="1–31" style="width:80px">
+          <span style="font-size:11px;color:var(--text3)">Alerta si no pagaste ese día</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">Observación</label>
+      <textarea class="fi" id="eObs" rows="2" placeholder="Notas sobre este concepto: banco, cuenta, referencia de pago…" style="resize:vertical;font-family:'Barlow',sans-serif;line-height:1.5"></textarea>
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Cambiar importe</div>
+      <div class="frow2">
+        <div class="fg">
+          <label class="fl">Nuevo importe (S/.)</label>
+          <input class="fi" id="eAmt" type="number" step="0.01" min="0" placeholder="Déjalo vacío para no cambiar">
+        </div>
+        <div class="fg"><label class="fl">Aplicar a</label>
+          <div class="fscope" style="flex-direction:column;gap:4px">
+            <div class="fsb active" id="esc-solo" onclick="setEditScope('solo')">Solo <span id="eMonthLbl" style="color:var(--purple3)">este mes</span></div>
+            <div class="fsb" id="esc-from" onclick="setEditScope('from')">Desde este mes en adelante</div>
+            <div class="fsb" id="esc-all" onclick="setEditScope('all')">Todos los meses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mact">
+      <button class="bs" onclick="closeEditModal()">Cancelar</button>
+      <button class="bp" style="background:var(--yellow,#f59e0b);color:#000" onclick="submitEdit()">✓ Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL SYNC GITHUB GIST ══ -->
 <div class="mo" id="moSync">
   <div class="mbox">
@@ -947,7 +1008,7 @@ function saveData(){
       saldo:SALDO_REAL, saldoDate:SALDO_UPDATED,
       history:HISTORY, hSeq,
       deferred:DEFERRED, dSeq,
-      itemOverrides: ITEMS.map((it,i)=>({i,name:it.name,cat:it.cat,v:it.v,dueDay:it.dueDay||null})),
+      itemOverrides: ITEMS.map((it,i)=>({i,name:it.name,cat:it.cat,v:it.v,dueDay:it.dueDay||null,obs:it.obs||''})),
       theme:document.documentElement.getAttribute('data-theme'),
       selIdx,
       dataModifiedTs,          // real "last edited" timestamp
@@ -984,8 +1045,9 @@ function loadData(){
         if(ov.i<ITEMS.length){
           ITEMS[ov.i].name=ov.name; ITEMS[ov.i].cat=ov.cat;
           ITEMS[ov.i].v=ov.v; ITEMS[ov.i].dueDay=ov.dueDay||null;
+          ITEMS[ov.i].obs=ov.obs||'';
         } else {
-          ITEMS.push({name:ov.name,cat:ov.cat,v:ov.v,dueDay:ov.dueDay||null});
+          ITEMS.push({name:ov.name,cat:ov.cat,v:ov.v,dueDay:ov.dueDay||null,obs:ov.obs||''});
         }
       });
     }
@@ -1010,8 +1072,9 @@ function applyPayload(d){
       if(ov.i<ITEMS.length){
         ITEMS[ov.i].name=ov.name; ITEMS[ov.i].cat=ov.cat;
         ITEMS[ov.i].v=ov.v; ITEMS[ov.i].dueDay=ov.dueDay||null;
+        ITEMS[ov.i].obs=ov.obs||'';
       } else {
-        ITEMS.push({name:ov.name,cat:ov.cat,v:ov.v,dueDay:ov.dueDay||null});
+        ITEMS.push({name:ov.name,cat:ov.cat,v:ov.v,dueDay:ov.dueDay||null,obs:ov.obs||''});
       }
     });
   }
@@ -1129,7 +1192,7 @@ async function syncToGist(){
     saldo:SALDO_REAL, saldoDate:SALDO_UPDATED,
     history:HISTORY, hSeq,
     deferred:DEFERRED, dSeq,
-    itemOverrides:ITEMS.map((it,i)=>({i,name:it.name,cat:it.cat,v:it.v,dueDay:it.dueDay||null})),
+    itemOverrides:ITEMS.map((it,i)=>({i,name:it.name,cat:it.cat,v:it.v,dueDay:it.dueDay||null,obs:it.obs||''})),
     theme:document.documentElement.getAttribute('data-theme'),
     ts:Date.now()
   };
@@ -1668,13 +1731,13 @@ function renderTable(i){
       actions=`<div class="ra">
         <button class="bi pay" title="Marcar como pagado" onclick="openPay(${it._idx},${i})"><svg viewBox="0 0 24 24" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg></button>
         ${nextMoAvail}
-        <button class="bi" title="Editar concepto, importe, vencimiento…" onclick="openAddModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="bi" title="Editar concepto, importe, vencimiento…" onclick="openEditModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="bi del" title="Eliminar" onclick="delItem(${it._idx},${i})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
       </div>`;
     } else {
       actions=`<div class="ra">
         <button class="bi inc" title="Registrar como recibido" onclick="openInc(${it._idx},${i})"><svg viewBox="0 0 24 24" style="color:var(--cyan)"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
-        <button class="bi" title="Editar concepto, importe…" onclick="openAddModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="bi" title="Editar concepto, importe…" onclick="openEditModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="bi del" title="Eliminar" onclick="delItem(${it._idx},${i})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
       </div>`;
     }
@@ -1695,7 +1758,11 @@ function renderTable(i){
       }
     }
 
-    tr.innerHTML=`<td style="font-weight:500;color:var(--text)">${deferredFrom?'<span style="font-size:10px;margin-right:4px">⚠</span>':''}${it.name}</td>
+    tr.innerHTML=`<td style="font-weight:500;color:var(--text)">
+        ${deferredFrom?'<span style="font-size:10px;margin-right:4px">⚠</span>':''}
+        ${it.name}
+        ${it.obs?`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px" title="${it.obs}">💬 ${it.obs}</div>`:''}
+      </td>
       <td><span class="catb" style="background:${col}20;color:${col}">${it.cat}</span></td>
       <td>${estado}</td>
       <td>${dueDateHtml}</td>
@@ -2003,6 +2070,67 @@ function renderHist(){
 // ═══════════════════════════════════════════════════════
 //  ADD MODAL
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  EDIT MODAL (dedicated for editing existing items)
+// ═══════════════════════════════════════════════════════
+let editItemIdx=null;
+let editScope='all';
+
+function openEditModal(ii){
+  editItemIdx=ii;
+  const it=ITEMS[ii];
+  document.getElementById('editTitleLbl').textContent='Editar: '+it.name;
+  document.getElementById('eMonthLbl').textContent=MONTHS[selIdx];
+  document.getElementById('eName').value=it.name;
+  document.getElementById('eCat').value=it.cat||'Otros';
+  document.getElementById('eDueDay').value=it.dueDay||'';
+  document.getElementById('eObs').value=it.obs||'';
+  document.getElementById('eAmt').value=''; // blank = no change
+  setEditScope('all');
+  document.getElementById('moEdit').classList.add('open');
+  setTimeout(()=>document.getElementById('eName').focus(),100);
+}
+function closeEditModal(){
+  document.getElementById('moEdit').classList.remove('open');
+  editItemIdx=null;
+}
+function setEditScope(s){
+  editScope=s;
+  ['solo','from','all'].forEach(k=>{
+    document.getElementById('esc-'+k).className='fsb'+(k===s?' active':'');
+  });
+}
+function submitEdit(){
+  if(editItemIdx===null)return;
+  const it=ITEMS[editItemIdx];
+  const name=document.getElementById('eName').value.trim();
+  const cat=document.getElementById('eCat').value;
+  const dueDayRaw=parseInt(document.getElementById('eDueDay').value);
+  const dueDay=(!isNaN(dueDayRaw)&&dueDayRaw>=1&&dueDayRaw<=31)?dueDayRaw:null;
+  const obs=document.getElementById('eObs').value.trim();
+  const amtRaw=document.getElementById('eAmt').value.trim();
+
+  if(!name){showToast('El nombre no puede estar vacío','err');return;}
+
+  // Name, category, dueDay, obs → always apply to whole item
+  it.name=name; it.cat=cat; it.dueDay=dueDay; it.obs=obs;
+
+  // Amount → only if user filled it in
+  if(amtRaw!==''){
+    const ra=parseFloat(amtRaw);
+    if(isNaN(ra)||ra<0){showToast('Importe inválido','err');return;}
+    // Determine sign from current values
+    const firstVal=it.v.find(v=>v!==null&&v!==0)??0;
+    const signed=firstVal>=0?ra:-ra;
+    if(editScope==='solo') it.v[selIdx]=signed;
+    else if(editScope==='from'){for(let x=selIdx;x<N;x++)if(it.v[x]!==null&&it.v[x]!==0)it.v[x]=signed;}
+    else{for(let x=0;x<N;x++)if(it.v[x]!==null&&it.v[x]!==0)it.v[x]=signed;}
+  }
+
+  markModified(); fullRefresh(); closeEditModal();
+  showToast('✓ "'+name+'" actualizado'+(dueDay?' · vence día '+dueDay:'')+(obs?' · con observación':''));
+}
+
 function openAddModal(editIdx=null){
   mEditItem=editIdx;
   const isEdit=editIdx!==null;
@@ -2126,11 +2254,11 @@ function selectMonth(i){
 }
 
 // close modals on overlay click / Esc
-['moAdd','moPay','moInc','moSync'].forEach(id=>{
+['moAdd','moPay','moInc','moSync','moEdit'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['moAdd','moPay','moInc','moSync'].forEach(id=>document.getElementById(id).classList.remove('open'));}
+  if(e.key==='Escape'){['moAdd','moPay','moInc','moSync','moEdit'].forEach(id=>document.getElementById(id).classList.remove('open'));}
   if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();openAddModal();}
 });
 
