@@ -431,6 +431,31 @@ select.fi{cursor:pointer;}
 .bi.defer-btn{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06);}
 .bi.defer-btn:hover{border-color:var(--yellow);background:rgba(245,158,11,.16);}
 .bi.defer-btn svg,.bi.defer-btn:hover svg{color:var(--yellow) !important;}
+
+/* ── FLUJO DE CAJA ── */
+#flujoTable{border-collapse:collapse;font-size:11px;min-width:100%;white-space:nowrap;}
+#flujoTable th,#flujoTable td{padding:5px 10px;border:1px solid var(--border);}
+#flujoTable thead th{background:var(--bg2);color:var(--text2);font-weight:700;font-size:10px;
+  letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0;z-index:20;
+  border-bottom:2px solid var(--border2);font-family:'Barlow Condensed',sans-serif;}
+#flujoTable thead th:first-child{position:sticky;left:0;top:0;z-index:30;min-width:190px;}
+#flujoTable tbody td{font-family:'JetBrains Mono',monospace;text-align:right;}
+#flujoTable tbody td:first-child{position:sticky;left:0;z-index:10;background:var(--bg2);
+  font-family:'Barlow',sans-serif;font-weight:600;font-size:12px;color:var(--text);
+  min-width:190px;max-width:230px;white-space:normal;text-align:left;line-height:1.3;padding:6px 10px;}
+#flujoTable tbody tr:hover td{filter:brightness(1.1);}
+#flujoTable .fcr-total td{background:var(--bg3)!important;font-weight:800;border-top:2px solid var(--border2);}
+#flujoTable .fcr-bal td{background:rgba(139,92,246,.07)!important;font-weight:800;border-top:2px solid var(--purple);}
+#flujoTable .fcr-sep td{background:rgba(139,92,246,.05)!important;
+  font-family:'Barlow Condensed',sans-serif!important;font-size:11px!important;
+  font-weight:800!important;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--purple3)!important;text-align:left!important;}
+.fc-pos{color:var(--green)!important;font-weight:700!important;}
+.fc-neg{color:var(--red)!important;}
+.fc-zero{color:var(--text3)!important;}
+.fc-paid{color:var(--green)!important;font-style:italic;}
+.fc-cur{background:rgba(245,158,11,.05)!important;}
+.fc-cur-h{background:rgba(245,158,11,.15)!important;color:var(--yellow)!important;}
 </style>
 </head>
 <body>
@@ -469,6 +494,10 @@ select.fi{cursor:pointer;}
       </div>
       <span class="mn-badge" id="mnavBadge" style="display:none">0</span>
     </div>
+    <div class="mob-nav-btn" id="mnav-flujo" onclick="switchTab('flujo')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      Flujo
+    </div>
     <div class="mob-nav-btn" onclick="openAddModal()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Agregar
@@ -492,6 +521,10 @@ select.fi{cursor:pointer;}
   <div class="tab active" id="tab-proy" onclick="switchTab('proy')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Proyección
+  </div>
+  <div class="tab" id="tab-flujo" onclick="switchTab('flujo')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+    Flujo de Caja
   </div>
   <div class="tab" id="tab-hist" onclick="switchTab('hist')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -717,6 +750,35 @@ select.fi{cursor:pointer;}
       </tr></thead>
       <tbody id="histBody"></tbody>
     </table></div>
+  </div>
+</div>
+
+<!-- ══ FLUJO DE CAJA ══ -->
+<div class="main tview" id="view-flujo" style="padding-left:0;padding-right:0;max-width:100%">
+  <div style="padding:16px 24px 10px">
+    <div class="ph" style="margin-bottom:10px">
+      <div>
+        <h1>Flujo de Caja</h1>
+        <p>Vista tabular completa · filas = conceptos · columnas = meses</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="seg">
+          <div class="seg-btn active" id="flujo-seg-all" onclick="setFlujoSeg('all')">Todo</div>
+          <div class="seg-btn" id="flujo-seg-inc" onclick="setFlujoSeg('inc')">↑ Ingresos</div>
+          <div class="seg-btn" id="flujo-seg-exp" onclick="setFlujoSeg('exp')">↓ Egresos</div>
+        </div>
+        <div class="data-chip" onclick="exportFlujoCSV()" title="Exportar tabla como CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 200px)">
+    <table id="flujoTable" style="border-collapse:collapse;font-size:12px;min-width:100%;white-space:nowrap">
+      <thead id="flujoHead"></thead>
+      <tbody id="flujoBody"></tbody>
+    </table>
   </div>
 </div>
 
@@ -1546,13 +1608,16 @@ function showToast(msg,type='ok'){
 //  TABS
 // ═══════════════════════════════════════════════════════
 function switchTab(name){
-  ['proy','hist'].forEach(t=>{
-    document.getElementById('tab-'+t).className='tab'+(t===name?' active':'');
-    document.getElementById('view-'+t).className='main tview'+(t===name?' active':'');
+  ['proy','flujo','hist'].forEach(t=>{
+    const tb=document.getElementById('tab-'+t);
+    if(tb) tb.className='tab'+(t===name?' active':'');
+    const vw=document.getElementById('view-'+t);
+    if(vw) vw.className='main tview'+(t===name?' active':'');
     const mn=document.getElementById('mnav-'+t);
-    if(mn)mn.className='mob-nav-btn'+(t===name?' active':'');
+    if(mn) mn.className='mob-nav-btn'+(t===name?' active':'');
   });
-  if(name==='hist')renderHist();
+  if(name==='hist') renderHist();
+  if(name==='flujo') renderFlujo();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2240,6 +2305,170 @@ function syncThemeIcons(theme){
 // ═══════════════════════════════════════════════════════
 //  FULL REFRESH & SELECT MONTH
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  FLUJO DE CAJA
+// ═══════════════════════════════════════════════════════
+let flujoSeg='all'; // 'all'|'inc'|'exp'
+
+function setFlujoSeg(s){
+  flujoSeg=s;
+  ['all','inc','exp'].forEach(k=>{
+    const b=document.getElementById('flujo-seg-'+k);
+    if(b) b.className='seg-btn'+(k===s?' active':'');
+  });
+  renderFlujo();
+}
+
+function renderFlujo(){
+  const thead=document.getElementById('flujoHead');
+  const tbody=document.getElementById('flujoBody');
+  if(!thead||!tbody) return;
+
+  // ── Header row: Item | mes1 | mes2 | ... ──
+  let hRow=`<tr>
+    <th style="text-align:left;min-width:190px">Concepto</th>`;
+  MONTHS.forEach((m,i)=>{
+    const isCur=i===CUR;
+    hRow+=`<th class="${isCur?'fc-cur-h':''}" style="text-align:right;min-width:90px">${m}</th>`;
+  });
+  hRow+='</tr>';
+  thead.innerHTML=hRow;
+
+  // ── Filter items by seg ──
+  const visibleItems=ITEMS.filter(it=>{
+    if(flujoSeg==='all') return true;
+    const hasInc=it.v.some(v=>v!==null&&v>0);
+    const hasExp=it.v.some(v=>v!==null&&v<0);
+    if(flujoSeg==='inc') return hasInc;
+    if(flujoSeg==='exp') return hasExp;
+    return true;
+  });
+
+  let rows='';
+
+  // ── Section: INGRESOS ──
+  const incItems=visibleItems.filter(it=>it.v.some(v=>v!==null&&v>0));
+  const expItems=visibleItems.filter(it=>it.v.some(v=>v!==null&&v<0));
+
+  if(flujoSeg!=='exp' && incItems.length){
+    rows+=`<tr class="fcr-sep"><td colspan="${MONTHS.length+1}">↑ Ingresos</td></tr>`;
+    incItems.forEach((it,idx)=>{
+      rows+=buildFlujoRow(it, ITEMS.indexOf(it));
+    });
+    // Total ingresos
+    rows+=`<tr class="fcr-total"><td>TOTAL INGRESOS</td>`;
+    MONTHS.forEach((_,mi)=>{
+      const tot=incItems.reduce((s,it)=>s+(it.v[mi]>0?it.v[mi]:0),0);
+      rows+=`<td class="${tot>0?'fc-pos':'fc-zero'}">${tot?fmtFC(tot):''}</td>`;
+    });
+    rows+='</tr>';
+  }
+
+  if(flujoSeg!=='inc' && expItems.length){
+    rows+=`<tr class="fcr-sep"><td colspan="${MONTHS.length+1}">↓ Egresos</td></tr>`;
+    expItems.forEach((it)=>{
+      rows+=buildFlujoRow(it, ITEMS.indexOf(it));
+    });
+    // Total egresos
+    rows+=`<tr class="fcr-total"><td>TOTAL EGRESOS</td>`;
+    MONTHS.forEach((_,mi)=>{
+      const tot=expItems.reduce((s,it)=>s+(it.v[mi]<0?it.v[mi]:0),0);
+      rows+=`<td class="${tot<0?'fc-neg':'fc-zero'}">${tot?fmtFC(tot):''}</td>`;
+    });
+    rows+='</tr>';
+  }
+
+  if(flujoSeg==='all'){
+    // Flujo neto mensual
+    rows+=`<tr class="fcr-total"><td>FLUJO NETO</td>`;
+    MONTHS.forEach((_,mi)=>{
+      const {income,expense}=monthFlow(mi);
+      const net=income+expense;
+      rows+=`<td class="${net>0?'fc-pos':net<0?'fc-neg':'fc-zero'}">${net?fmtFC(net):''}</td>`;
+    });
+    rows+='</tr>';
+
+    // Balance acumulado
+    rows+=`<tr class="fcr-bal"><td>SALDO ESTIMADO</td>`;
+    MONTHS.forEach((_,mi)=>{
+      const bal=computeBalance(mi);
+      rows+=`<td class="${bal>0?'fc-pos':bal<0?'fc-neg':'fc-zero'}">${fmtFC(bal)}</td>`;
+    });
+    rows+='</tr>';
+  }
+
+  tbody.innerHTML=rows;
+}
+
+function buildFlujoRow(it, itemIdx){
+  const isCat=it.cat;
+  const col=CC[isCat]||'#666';
+  let row=`<tr>
+    <td style="text-align:left">
+      <div style="display:flex;align-items:center;gap:5px">
+        <span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0;display:inline-block"></span>
+        <span>${it.name}</span>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:1px">${isCat}${it.dueDay?' · día '+it.dueDay:''}</div>
+    </td>`;
+  MONTHS.forEach((_,mi)=>{
+    const v=it.v[mi];
+    const paid=isPaid(itemIdx,mi);
+    const h=paid?getHist(itemIdx,mi):null;
+    const isCur=mi===CUR;
+    let cls=isCur?'fc-cur ':'';
+    let txt='';
+    if(paid&&h){
+      const real=h.type==='inc'?h.realAmt:-h.realAmt;
+      cls+='fc-paid';
+      txt=fmtFC(real)+'✓';
+    } else if(v!==null&&v!==0){
+      cls+=v>0?'fc-pos':'fc-neg';
+      txt=fmtFC(v);
+    } else {
+      cls+='fc-zero';
+    }
+    row+=`<td class="${cls}">${txt}</td>`;
+  });
+  row+='</tr>';
+  return row;
+}
+
+function fmtFC(v){
+  if(v===null||v===undefined) return '';
+  const abs=Math.abs(v).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return (v<0?'-':'')+'S/.'+abs;
+}
+
+function exportFlujoCSV(){
+  const table=document.getElementById('flujoTable');
+  if(!table){showToast('Primero abre la pestaña Flujo de Caja','err');return;}
+  let csv='';
+  // Header
+  csv+='Concepto,'+MONTHS.join(',')+'\n';
+  // Items
+  ITEMS.forEach((it,idx)=>{
+    const row=['"'+it.name+' ('+it.cat+')"'];
+    MONTHS.forEach((_,mi)=>{
+      const paid=isPaid(idx,mi);
+      const h=paid?getHist(idx,mi):null;
+      if(paid&&h) row.push(h.type==='inc'?h.realAmt:-h.realAmt);
+      else row.push(it.v[mi]??'');
+    });
+    csv+=row.join(',')+'\n';
+  });
+  // Totals
+  csv+='FLUJO NETO,'+MONTHS.map((_,mi)=>{const{income,expense}=monthFlow(mi);return income+expense;}).join(',')+'\n';
+  csv+='SALDO ESTIMADO,'+MONTHS.map((_,mi)=>computeBalance(mi)).join(',')+'\n';
+
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`flujo_caja_${today()}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('CSV exportado ✓','ok');
+}
+
 function fullRefresh(skipSave=false){
   renderSaldo(); buildTicker(); buildMonths();
   renderKPIs(selIdx); renderTable(selIdx); renderCats(selIdx);
