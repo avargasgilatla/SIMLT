@@ -749,7 +749,10 @@ select.fi{cursor:pointer;}
         <span style="font-size:11px;color:var(--text3)">Día del mes en que vence. Se mostrará alerta si no has pagado.</span>
       </div>
     </div>
-    <div class="fg"><label class="fl">Aplicar a</label>
+    <div class="fg"><label class="fl">Aplicar importe a</label>
+      <div id="fScopeNote" style="display:none;font-size:11px;color:var(--cyan);background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);border-radius:6px;padding:6px 10px;margin-bottom:6px">
+        ℹ Nombre, categoría y día de vencimiento se aplican siempre a todos los meses. El scope solo afecta al importe.
+      </div>
       <div class="fscope">
         <div class="fsb active" id="fsc-solo" onclick="setScope('solo')">Solo este mes</div>
         <div class="fsb" id="fsc-from" onclick="setScope('from')">Desde este mes</div>
@@ -1665,13 +1668,13 @@ function renderTable(i){
       actions=`<div class="ra">
         <button class="bi pay" title="Marcar como pagado" onclick="openPay(${it._idx},${i})"><svg viewBox="0 0 24 24" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg></button>
         ${nextMoAvail}
-        <button class="bi" title="Editar importe" onclick="startEdit(${it._idx},${i},this)"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="bi" title="Editar concepto, importe, vencimiento…" onclick="openAddModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="bi del" title="Eliminar" onclick="delItem(${it._idx},${i})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
       </div>`;
     } else {
       actions=`<div class="ra">
         <button class="bi inc" title="Registrar como recibido" onclick="openInc(${it._idx},${i})"><svg viewBox="0 0 24 24" style="color:var(--cyan)"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
-        <button class="bi" title="Editar" onclick="startEdit(${it._idx},${i},this)"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="bi" title="Editar concepto, importe…" onclick="openAddModal(${it._idx})"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="bi del" title="Eliminar" onclick="delItem(${it._idx},${i})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
       </div>`;
     }
@@ -2002,20 +2005,31 @@ function renderHist(){
 // ═══════════════════════════════════════════════════════
 function openAddModal(editIdx=null){
   mEditItem=editIdx;
-  document.getElementById('addTitleLbl').textContent=editIdx!==null?'Editar movimiento':'Nuevo movimiento';
-  if(editIdx!==null){
-    const it=ITEMS[editIdx],v=it.v[selIdx]??0;
+  const isEdit=editIdx!==null;
+  document.getElementById('addTitleLbl').textContent=isEdit?'Editar movimiento':'Nuevo movimiento';
+
+  // Show/hide scope selector — when editing, scope applies to importe only, not dueDay/name/cat
+  const scopeNote=document.getElementById('fScopeNote');
+  if(scopeNote) scopeNote.style.display=isEdit?'block':'none';
+
+  if(isEdit){
+    const it=ITEMS[editIdx];
+    // Find the first non-null value to determine sign/amount
+    const firstVal=it.v.find(v=>v!==null&&v!==0)??0;
     document.getElementById('fName').value=it.name;
-    document.getElementById('fAmt').value=Math.abs(v);
+    document.getElementById('fAmt').value=Math.abs(firstVal);
     document.getElementById('fCat').value=it.cat;
     document.getElementById('fDueDay').value=it.dueDay||'';
-    setMType(v>=0?'inc':'exp');
+    setMType(firstVal>=0?'inc':'exp');
+    setScope('all'); // default: apply amount change to all months
   } else {
-    document.getElementById('fName').value='';document.getElementById('fAmt').value='';
-    document.getElementById('fCat').value='Otros';document.getElementById('fDueDay').value='';
+    document.getElementById('fName').value='';
+    document.getElementById('fAmt').value='';
+    document.getElementById('fCat').value='Otros';
+    document.getElementById('fDueDay').value='';
     setMType('exp');
+    setScope('solo');
   }
-  setScope('solo');
   document.getElementById('moAdd').classList.add('open');
   setTimeout(()=>document.getElementById('fName').focus(),100);
 }
@@ -2045,16 +2059,20 @@ function submitAdd(){
   const signed=mType==='inc'?ra:-ra;
   if(mEditItem!==null){
     const it=ITEMS[mEditItem];
-    if(mScope==='solo')it.v[selIdx]=signed;
-    else if(mScope==='from'){for(let x=selIdx;x<N;x++)if(it.v[x]!==null)it.v[x]=signed;}
-    else{for(let x=0;x<N;x++)if(it.v[x]!==null)it.v[x]=signed;}
-    it.name=name;it.cat=cat;it.dueDay=dueDay;showToast('"'+name+'" actualizado');
+    // Apply amount change per scope
+    if(mScope==='solo') it.v[selIdx]=signed;
+    else if(mScope==='from'){for(let x=selIdx;x<N;x++)if(it.v[x]!==null&&it.v[x]!==0)it.v[x]=signed;}
+    else{for(let x=0;x<N;x++)if(it.v[x]!==null&&it.v[x]!==0)it.v[x]=signed;}
+    // Name, category and dueDay ALWAYS apply to the whole item (not per-month)
+    it.name=name; it.cat=cat; it.dueDay=dueDay;
+    showToast('"'+name+'" actualizado'+(dueDay?' · vence día '+dueDay:''));
   } else {
     const arr=Array(N).fill(null);
     if(mScope==='solo')arr[selIdx]=signed;
     else if(mScope==='from'){for(let x=selIdx;x<N;x++)arr[x]=signed;}
     else{for(let x=0;x<N;x++)arr[x]=signed;}
-    ITEMS.push({name,cat,v:arr,dueDay});showToast('"'+name+'" agregado');
+    ITEMS.push({name,cat,v:arr,dueDay});
+    showToast('"'+name+'" agregado'+(dueDay?' · vence día '+dueDay:''));
   }
   markModified(); fullRefresh(); closeAddModal();
 }
