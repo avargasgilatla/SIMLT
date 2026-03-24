@@ -2728,12 +2728,35 @@ function renderFlujo(){
 
   let rows='';
 
+  // ── SALDO ESTIMADO + FLUJO NETO at the TOP (like spreadsheet) ──
+  if(flujoSeg==='all'){
+    rows+=`<tr class="fcr-bal" style="font-size:12px"><td style="text-align:left;position:sticky;left:0;background:rgba(139,92,246,.07)">💰 SALDO ESTIMADO</td>`;
+    for(let i=start;i<=end;i++){
+      const bal=computeBalance(i);
+      rows+=`<td class="${bal>0?'fc-pos':bal<0?'fc-neg':'fc-zero'} ${i===CUR?'fc-cur':''}">${fmtFC(bal)}</td>`;
+    }
+    rows+='</tr>';
+    rows+=`<tr class="fcr-total"><td style="text-align:left;position:sticky;left:0;background:var(--bg3)">= FLUJO NETO</td>`;
+    for(let i=start;i<=end;i++){
+      const {income,expense}=monthFlow(i);
+      const net=income+expense;
+      rows+=`<td class="${net>0?'fc-pos':net<0?'fc-neg':'fc-zero'} ${i===CUR?'fc-cur':''}">${net?fmtFC(net):''}</td>`;
+    }
+    rows+='</tr>';
+    // Empty separator row
+    rows+=`<tr><td colspan="${visMonths.length+1}" style="height:6px;background:transparent;border:none"></td></tr>`;
+  }
+
   if(flujoSeg!=='exp'&&incItems.length){
     rows+=`<tr class="fcr-sep"><td colspan="${visMonths.length+1}" style="text-align:left">↑ Ingresos</td></tr>`;
     incItems.forEach(it=>{ rows+=buildFlujoRow(it,ITEMS.indexOf(it),start,end); });
-    rows+=`<tr class="fcr-total"><td style="text-align:left">TOTAL INGRESOS</td>`;
+    rows+=`<tr class="fcr-total"><td style="text-align:left;position:sticky;left:0;background:var(--bg3)">TOTAL INGRESOS</td>`;
     for(let i=start;i<=end;i++){
-      const tot=incItems.reduce((s,it)=>s+(it.v[i]>0?it.v[i]:0),0);
+      // Convert USD items to PEN for totals
+      const tot=incItems.reduce((s,it)=>{
+        const v=it.v[i]; if(!v||v<=0) return s;
+        return s+toPEN(it,v);
+      },0);
       rows+=`<td class="${tot>0?'fc-pos':'fc-zero'} ${i===CUR?'fc-cur':''}">${tot?fmtFC(tot):''}</td>`;
     }
     rows+='</tr>';
@@ -2742,26 +2765,14 @@ function renderFlujo(){
   if(flujoSeg!=='inc'&&expItems.length){
     rows+=`<tr class="fcr-sep"><td colspan="${visMonths.length+1}" style="text-align:left">↓ Egresos</td></tr>`;
     expItems.forEach(it=>{ rows+=buildFlujoRow(it,ITEMS.indexOf(it),start,end); });
-    rows+=`<tr class="fcr-total"><td style="text-align:left">TOTAL EGRESOS</td>`;
+    rows+=`<tr class="fcr-total"><td style="text-align:left;position:sticky;left:0;background:var(--bg3)">TOTAL EGRESOS</td>`;
     for(let i=start;i<=end;i++){
-      const tot=expItems.reduce((s,it)=>s+(it.v[i]<0?it.v[i]:0),0);
+      // Convert USD items to PEN for totals
+      const tot=expItems.reduce((s,it)=>{
+        const v=it.v[i]; if(!v||v>=0) return s;
+        return s+toPEN(it,v);
+      },0);
       rows+=`<td class="${tot<0?'fc-neg':'fc-zero'} ${i===CUR?'fc-cur':''}">${tot?fmtFC(tot):''}</td>`;
-    }
-    rows+='</tr>';
-  }
-
-  if(flujoSeg==='all'){
-    rows+=`<tr class="fcr-total"><td style="text-align:left">FLUJO NETO</td>`;
-    for(let i=start;i<=end;i++){
-      const {income,expense}=monthFlow(i);
-      const net=income+expense;
-      rows+=`<td class="${net>0?'fc-pos':net<0?'fc-neg':'fc-zero'} ${i===CUR?'fc-cur':''}">${net?fmtFC(net):''}</td>`;
-    }
-    rows+='</tr>';
-    rows+=`<tr class="fcr-bal"><td style="text-align:left">SALDO ESTIMADO</td>`;
-    for(let i=start;i<=end;i++){
-      const bal=computeBalance(i);
-      rows+=`<td class="${bal>0?'fc-pos':bal<0?'fc-neg':'fc-zero'} ${i===CUR?'fc-cur':''}">${fmtFC(bal)}</td>`;
     }
     rows+='</tr>';
   }
@@ -2771,11 +2782,13 @@ function renderFlujo(){
 
 function buildFlujoRow(it,itemIdx,start,end){
   const col=CC[it.cat]||'#666';
+  const isUsd=it.currency==='USD';
   let row=`<tr>
     <td style="position:sticky;left:0;z-index:10;background:var(--bg2);text-align:left">
       <div style="display:flex;align-items:center;gap:5px">
         <span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0;display:inline-block"></span>
         <span style="font-weight:600">${it.name}</span>
+        ${isUsd?'<span style="font-size:8px;font-weight:800;color:var(--cyan);background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.3);border-radius:3px;padding:0 3px">USD</span>':''}
       </div>
       <div style="font-size:9px;color:var(--text3);margin-top:1px">${it.cat}${it.dueDay?' · día '+it.dueDay:''}</div>
     </td>`;
@@ -2787,10 +2800,17 @@ function buildFlujoRow(it,itemIdx,start,end){
     let cls=isCur?'fc-cur ':'';
     let txt='';
     if(paid&&h){
-      const real=h.type==='inc'?h.realAmt:-h.realAmt;
-      cls+='fc-paid'; txt=fmtFC(real)+'✓';
+      const rawSigned=h.type==='inc'?h.realAmt:-h.realAmt;
+      const penSigned=toPEN(it,rawSigned);
+      cls+='fc-paid';
+      txt=fmtFC(penSigned)+'✓';
+      if(isUsd) txt+=`<br><span style="font-size:8px;color:var(--cyan);opacity:.8">$${Math.abs(h.realAmt).toFixed(0)}</span>`;
     } else if(v!==null&&v!==0){
-      cls+=v>0?'fc-pos':'fc-neg'; txt=fmtFC(v);
+      const penV=toPEN(it,v);
+      cls+=penV>0?'fc-pos':'fc-neg';
+      txt=fmtFC(penV);
+      // Show original USD amount as small hint
+      if(isUsd) txt+=`<br><span style="font-size:8px;color:var(--cyan);opacity:.8">$${Math.abs(v).toFixed(0)}</span>`;
     } else { cls+='fc-zero'; }
     row+=`<td class="${cls}">${txt}</td>`;
   }
@@ -2805,19 +2825,23 @@ function fmtFC(v){
 }
 
 function exportFlujoCSV(){
-  let csv='Concepto,Categoría,'+MONTHS.join(',')+'\n';
+  let csv='Concepto,Categoría,Moneda,'+MONTHS.join(',')+'\n';
   ITEMS.forEach((it,idx)=>{
-    const row=['"'+it.name+'"','"'+it.cat+'"'];
+    const row=['"'+it.name+'"','"'+it.cat+'"',it.currency||'PEN'];
     MONTHS.forEach((_,mi)=>{
       const paid=isPaid(idx,mi);
       const h=paid?getHist(idx,mi):null;
-      if(paid&&h) row.push(h.type==='inc'?h.realAmt:-h.realAmt);
-      else row.push(it.v[mi]??'');
+      if(paid&&h){
+        const raw=h.type==='inc'?h.realAmt:-h.realAmt;
+        row.push(toPEN(it,raw).toFixed(2));
+      } else {
+        row.push(it.v[mi]!==null&&it.v[mi]!==undefined?toPEN(it,it.v[mi]).toFixed(2):'');
+      }
     });
     csv+=row.join(',')+'\n';
   });
-  csv+=',,FLUJO NETO,'+MONTHS.map((_,mi)=>{const{income,expense}=monthFlow(mi);return income+expense;}).join(',')+'\n';
-  csv+=',,SALDO ESTIMADO,'+MONTHS.map((_,mi)=>computeBalance(mi)).join(',')+'\n';
+  csv+=',,,"FLUJO NETO",'+MONTHS.map((_,mi)=>{const{income,expense}=monthFlow(mi);return (income+expense).toFixed(2);}).join(',')+'\n';
+  csv+=',,,"SALDO ESTIMADO",'+MONTHS.map((_,mi)=>computeBalance(mi).toFixed(2)).join(',')+'\n';
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
